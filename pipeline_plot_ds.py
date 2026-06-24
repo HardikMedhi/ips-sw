@@ -28,7 +28,7 @@ warnings.filterwarnings("ignore")
 with open(os.devnull, 'w') as _devnull:
     _stdout = sys.stdout
     sys.stdout = _devnull
-    import thesis.code2.plot_ds as dsp
+    import plot_ds as dsp
     from filterbank import Filterbank
     import data_process as dpr
     import organize_plots_date as opd
