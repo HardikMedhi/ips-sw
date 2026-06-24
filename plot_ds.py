@@ -19,8 +19,11 @@ def visualize_ds(fb_obj: Filterbank,
 
     # Start from the full matrix, then optionally crop the frequency range.
     matrix = fb_obj.matrix 
+    freq_chans = fb_obj.freq_channels
+
     if f1 is not None or f2 is not None:
-        matrix = dpr.get_sub_matrix(matrix, f1, f2, fb_obj.freq_channels)
+        matrix, sub_freq_chan = dpr.get_sub_matrix(matrix, f1, f2, fb_obj.freq_channels)
+        freq_chans = sub_freq_chan
 
     filename_suffix = ''
     if bpnorm:
@@ -51,7 +54,7 @@ def visualize_ds(fb_obj: Filterbank,
         vmin=np.nanpercentile(matrix, 5),
         vmax=np.nanpercentile(matrix, 95),
         extent=[fb_obj.time_samples[0], fb_obj.time_samples[-1],
-                fb_obj.freq_channels[0], fb_obj.freq_channels[-1]]
+                freq_chans[0], freq_chans[-1]]
     )
     ax_main.set_ylabel("Frequency (MHz)", fontsize=11)
     mjd_dt = tut.mjd_to_datetime(fb_obj.mjd).strftime('%Y-%m-%d %H:%M:%S')
@@ -73,10 +76,10 @@ def visualize_ds(fb_obj: Filterbank,
     
     # Frequency series (right of main plot)
     ax_freq = fig.add_subplot(gs[0, 2])
-    ax_freq.plot(freq_profile, fb_obj.freq_channels, color='black', linewidth=1)
+    ax_freq.plot(freq_profile, freq_chans, color='black', linewidth=1)
     ax_freq.set_xlabel("Mean Intensity", fontsize=10)
     #ax_freq.set_ylabel("Frequency (MHz)", fontsize=11)
-    ax_freq.set_ylim(fb_obj.freq_channels[0], fb_obj.freq_channels[-1])  # Match direction with main plot
+    ax_freq.set_ylim(freq_chans[0], freq_chans[-1])  # Match direction with main plot
     ax_freq.grid(True, alpha=0.3)
 
     if save_folder_path is not None:
@@ -85,7 +88,7 @@ def visualize_ds(fb_obj: Filterbank,
         folder_path.mkdir(exist_ok=True)
         
         # Construct the output filename, preserving any requested suffix.
-        filename = f"{fb_obj.source_name}_{fb_obj.mjd}_{fb_obj.freq_channels[0]:.2f}_{fb_obj.freq_channels[-1]:.2f}_dyn_spec{filename_suffix}.jpeg"
+        filename = f"{fb_obj.source_name}_{fb_obj.mjd}_{freq_chans[0]:.2f}_{freq_chans[-1]:.2f}_dyn_spec{filename_suffix}.jpeg"
         file_path = folder_path / filename
         
         # Delegate overwrite handling to the shared helper.
@@ -120,9 +123,9 @@ Example:
     parser.add_argument('--save', type=str, default=None,
                        help='Folder to save the plot (if not provided, plot will be displayed)')
     parser.add_argument('--f1', type=float, default=None,
-                       help='Start frequency in MHz (default: filterbank start frequency)')
+                       help='Higher frequency in MHz (default: filterbank start frequency)')
     parser.add_argument('--f2', type=float, default=None,
-                       help='End frequency in MHz (default: filterbank end frequency)')
+                       help='Lower frequency in MHz (default: filterbank end frequency)')
     parser.add_argument('--bpnorm', action='store_true',
                        help='Also produce a bandpass-normalized dynamic spectrum plot')
     
