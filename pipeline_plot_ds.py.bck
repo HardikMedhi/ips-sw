@@ -1,0 +1,160 @@
+import subprocess
+import logging
+from pathlib import Path
+import warnings
+warnings.filterwarnings("ignore")
+
+import ds_plotter as dsp 
+from filterbank import Filterbank
+import data_process as dpr
+import organize_plots_date as opd
+
+# ==========================================
+# Configuration Variables
+# ==========================================
+REMOTE_USER = "pulsar1"
+REMOTE_HOST = "pulsar1"
+REMOTE_DIR = "/data/ips"
+LOCAL_DATA_DIR = Path("/data/IPS/")
+PLOT_DIR = Path("/home/hardikmedhi/PhD/plots/ds")
+START_DATE = '2026-04-01'
+
+# Set up logging for the daily cron job
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+
+def get_recent_remote_files() -> list:
+    """Fetches a list of files modified in the last 24 hours via SSH."""
+    #find_cmd = f"cd {REMOTE_DIR} && find . -type f -mtime -1"
+    find_cmd = f"cd {REMOTE_DIR} && find . -type f -newermt {START_DATE}"
+    ssh_cmd = ["ssh", f"{REMOTE_USER}@{REMOTE_HOST}", find_cmd]
+    
+    try:
+        result = subprocess.run(ssh_cmd, capture_output=True, text=True, check=True)
+        # Split by lines and remove the leading './' from find's output
+        files = [line.lstrip("./") for line in result.stdout.strip().split("\n") if line]
+        return files
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Failed to fetch remote file list: {e.stderr}")
+        return []
+
+def check_plots_exist(filename: str) -> bool:
+    """Checks if both dynamic spectrum JPEGs exist for a given raw filename."""
+    # Strip the known extension to get the base prefix (e.g., '3C459_61176.236111')
+    base_prefix = filename.replace("_ort.fil", "")
+    
+    # Use pathlib's glob to search for matching patterns
+    dyn_spec_pattern = f"{base_prefix}_334.50_318.56_dyn_spec.jpeg"
+    bpnorm_pattern = f"{base_prefix}_334.50_318.56_dyn_spec_bpnorm.jpeg"
+    
+    dyn_spec_matches = list(PLOT_DIR.glob(dyn_spec_pattern))
+    bpnorm_matches = list(PLOT_DIR.glob(bpnorm_pattern))
+    
+    return len(dyn_spec_matches) > 0 and len(bpnorm_matches) > 0
+
+def download_data(clean_filepath: str) -> bool:
+    """Downloads a single specific file via rsync."""
+    remote_target = f"{REMOTE_USER}@{REMOTE_HOST}:{REMOTE_DIR}/{clean_filepath}"
+    rsync_cmd = ["rsync", "-avz", "--progress", remote_target, str(LOCAL_DATA_DIR) + "/"]
+    
+    try:
+        logging.info(f"Downloading: {clean_filepath}...")
+        subprocess.run(rsync_cmd, check=True, stdout=subprocess.DEVNULL)
+        return True
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Rsync failed for {clean_filepath}: {e}")
+        return False
+
+def cleanup_data(local_file: Path):
+    """Deletes the raw local data file to free up storage."""
+    try:
+        local_file.unlink(missing_ok=True)
+        logging.info(f"Cleaned up raw data: {local_file.name}")
+    except OSError as e:
+        logging.error(f"Failed to delete {local_file.name}: {e}")
+
+def make_plots(file_path: Path, save_folder_path: Path):
+    fb_obj = Filterbank(file_path)
+    matrix = fb_obj.matrix
+    bpnorm_matrix = dpr.bp_norm_matrix(matrix)
+
+    logging.info("Making dynamic spectrum...")
+    dsp.visualize_ds(
+            fb_obj.source_name, fb_obj.mjd,
+            matrix, fb_obj.time_samples,
+            fb_obj.freq_channels, save_folder_path
+    )
+
+    logging.info("Making BP-normalized dynamic spectrum...")
+    dsp.visualize_ds(
+            fb_obj.source_name, fb_obj.mjd,
+            bpnorm_matrix, fb_obj.time_samples,
+            fb_obj.freq_channels, save_folder_path,
+            '_bpnorm'
+    )
+
+# ==========================================
+# Main Execution Flow
+# ==========================================
+
+def main():
+    logging.info("Starting daily pipeline scan...")
+    
+    # Ensure local directories exist
+    LOCAL_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    PLOT_DIR.mkdir(parents=True, exist_ok=True)
+
+    remote_files = get_recent_remote_files()
+
+    if not remote_files:
+        logging.info("No new files found on the remote server.")
+        return
+
+    for clean_filepath in remote_files[:5]:
+        # Extract just the filename (e.g., '3C459_61176.236111_ort.fil')
+        filename = clean_filepath.split("/")[-1]
+        local_file = LOCAL_DATA_DIR / filename
+
+        # 1. Check idempotency
+        if check_plots_exist(filename):
+            logging.info("-" * 40)
+            logging.info(f"Skipping {filename}: Both plots already exist.")
+            continue
+
+        logging.info("-" * 40)
+        logging.info(f"Processing new file: {filename}")
+        
+        # 2. Download Data
+        if download_data(clean_filepath):
+            
+            # 3 & 4. Run the Plotting Script natively
+            try:
+                logging.info(f"Generating plots for {filename}...")
+                
+                # Call the main processing function from your plotting module
+                # Pass the exact local file path and the target plot directory
+                make_plots(local_file, PLOT_DIR)
+                
+                logging.info(f"Successfully generated plots for {filename}.")
+                
+                # 5. Cleanup
+                cleanup_data(local_file)
+                
+            except Exception as e:
+                # Catch any errors thrown by NumPy, Astropy, etc. inside your plotting script
+                logging.error(f"Plot generation failed for {filename}: {e}")
+                logging.error("Retaining raw data file for debugging.")
+                
+        else:
+            logging.error(f"Moving to next file due to download failure.")
+
+    logging.info("Organizing the plots by date.")
+    opd.organize()
+
+    logging.info("Pipeline execution complete.")
+
+if __name__ == "__main__":
+    main()

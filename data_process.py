@@ -1,0 +1,97 @@
+import numpy as np
+from pathlib import Path
+
+import file_utils as fut
+
+def get_time_freqs(data: np.ndarray, tsampl: float, nchan: int, chan_bw: float, freq_start: float):
+    """Build the time and frequency axes for a reshaped dynamic spectrum."""
+    nsamples = data.shape[0]
+    # Time increases by the sample interval; frequency steps by channel width.
+    time_samples = np.arange(nsamples) * tsampl
+    freq_channels = freq_start + np.arange(nchan) * chan_bw
+
+    return time_samples, freq_channels
+
+
+def get_data_matrix(file_path: Path):
+    """Read a supported file and reshape its data into samples x channels."""
+    if not file_path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    # Detect file type and read it through the shared file utilities.
+    file_type = fut.get_file_type(file_path)
+    #print(f"Reading {file_type} file: {file_path}")
+    
+    header, data = fut.read_filbank(file_path) if file_type == 'filterbank' else fut.read_fits(file_path)
+
+    nchan = header.nchans
+    tsampl = header.tsamp  # seconds
+    freq_start = header.fch1
+    channel_bw = header.foff
+    epoch = str(round(header.tstart, 6))
+
+    if len(epoch) < 12:
+        epoch += '0' * (12 - len(epoch))
+
+    # print(f"  Number of channels: {nchan}")
+    # print(f"  Sample time: {tsampl} s")
+    # print(f"  Start frequency: {freq_start} MHz")
+    # print(f"  Channel bandwidth: {channel_bw} MHz")
+    # print(f"  Epoch (MJD): {epoch}")
+
+    # # Reshape the flat data array into a 2D samples x channels matrix.
+    # print("Loading and reshaping data...")
+    reshaped_data = data.reshape(-1, nchan)
+    #print(f"  Data shape: {reshaped_data.shape} (samples × channels)")
+
+    return reshaped_data
+
+def get_sub_matrix(matrix: np.ndarray, f1:float, f2:float, freq_channels: np.ndarray):
+    """Extract a frequency sub-band from the full matrix and channel axis."""
+    if f1 is None and f2 is None:
+        print("No f1 and f2 provided!")
+        return matrix, freq_channels
+
+    # Use the data's native frequency range as the reference bounds.
+    f_start = freq_channels[0]
+    f_end = freq_channels[-1]
+
+    # Clamp the requested frequencies to the available band.
+    freq1 = min(f1, f_start) if f1 is not None else f_start
+    freq2 = max(f2, f_end) if f2 is not None else f_end
+
+    # Keep only the channels inside the selected band.
+    freq_mask = (freq_channels <= freq1) & (freq_channels >= freq2)
+    sub_matrix = matrix[:, freq_mask]
+    sub_freq_channels = freq_channels[freq_mask]
+    
+    print(f"  Frequency range: {freq1:.2f} - {freq2:.2f} MHz")
+    print(f"  Filtered data shape: {sub_matrix.shape} (samples × channels)")
+
+    return sub_matrix, sub_freq_channels
+
+def get_median_bandpass(matrix: np.ndarray):
+    """Return the per-channel median across time for bandpass correction."""
+
+    # Median across time (axis=0) gives one bandpass value per channel.
+    bandpass = np.median(matrix, axis=0)
+    return bandpass
+
+def bp_norm_matrix(matrix:np.ndarray, bandpass:np.ndarray=None):
+    """Normalize each channel by dividing by its bandpass.
+
+    Zero bandpass values are converted to NaN so the corresponding
+    normalized samples also become NaN.
+    """
+
+    # Use the median bandpass unless the caller supplies one explicitly.
+    bandpass = get_median_bandpass(matrix) if bandpass is None else bandpass
+
+    # Replace zero bandpass values with NaN so divisions yield NaN.
+    bandpass_safe = bandpass.astype(float).copy()
+    bandpass_safe[bandpass_safe == 0] = np.nan
+
+    # Divide channel values by their bandpass estimate.
+    bpnorm_matrix = matrix / bandpass_safe
+
+    return bpnorm_matrix
