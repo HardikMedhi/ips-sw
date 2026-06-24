@@ -202,21 +202,18 @@ def make_plots(file_path: Path, save_folder_path: Path):
     """
     with suppress_stdout():
         fb_obj = Filterbank(file_path)
-        matrix = fb_obj.matrix
-        bpnorm_matrix = dpr.bp_norm_matrix(matrix)
 
-    # Pack arguments for each visualize_ds call; the only difference is the
-    # input matrix and the optional suffix that distinguishes the output filenames
+    # Pack arguments for each visualize_ds call
     args_ds = (
-        fb_obj.source_name, fb_obj.mjd,
-        matrix, fb_obj.time_samples,
-        fb_obj.freq_channels, save_folder_path
+        fb_obj,
+        None, None,
+        False, save_folder_path
     )
+
     args_bpnorm = (
-        fb_obj.source_name, fb_obj.mjd,
-        bpnorm_matrix, fb_obj.time_samples,
-        fb_obj.freq_channels, save_folder_path,
-        '_bpnorm'
+        fb_obj,
+        None, None,
+        True, save_folder_path
     )
 
     logging.info("Making dynamic spectrum and BP-normalised dynamic spectrum...")
