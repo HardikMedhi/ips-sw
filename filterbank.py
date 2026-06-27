@@ -3,6 +3,7 @@ from pathlib import Path
 
 import file_utils as fut
 import data_process as dpr
+import time_utils as tut
 
 class Filterbank:
     """Load a filterbank or FITS file and expose commonly used metadata."""
@@ -63,6 +64,11 @@ class Filterbank:
     def mjd(self):
         """Return the formatted MJD string."""
         return self._mjd
+    
+    @property
+    def datetime(self):
+        """Return the formatted datetime string."""
+        return tut.mjd_to_datetime(self._mjd)
     
     @property
     def matrix(self):

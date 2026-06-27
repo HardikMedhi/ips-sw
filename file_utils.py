@@ -13,7 +13,8 @@ def get_source_name(file_path: Path):
 
 def get_file_type(file_path: Path):
     """Return the supported file type based on the file extension."""
-    file_ext = Path(file_path).suffix.lower()
+    file_path = Path(file_path)
+    file_ext = file_path.suffix.lower()
     if file_ext in ['.fits', '.fit']:
         return 'fits'
     elif file_ext == '.fil':

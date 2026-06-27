@@ -31,7 +31,7 @@ with open(os.devnull, 'w') as _devnull:
     import plot_ds as dsp
     from filterbank import Filterbank
     import data_process as dpr
-    import organize_plots_date as opd
+    import organize_dsplots_date as opd
     sys.stdout = _stdout
 
 # ==========================================
@@ -119,7 +119,7 @@ def check_plots_exist(filename: str) -> bool:
         bool: True if both plots exist, False otherwise.
     """
     # Drop the '_ort.fil' suffix to get the shared base prefix used in plot filenames
-    base_prefix = filename.replace("_ort.fil", "")
+    base_prefix = Path(filename).stem
 
     dyn_spec_pattern = f"{base_prefix}_334.50_318.56_dyn_spec.jpeg"
     bpnorm_pattern = f"{base_prefix}_334.50_318.56_dyn_spec_bpnorm.jpeg"
@@ -245,7 +245,13 @@ def filter_new_files(remote_files: list) -> list:
     """
     files_to_process = []
     for clean_filepath in remote_files:
-        filename = clean_filepath.split("/")[-1]
+        filename = Path(clean_filepath).name
+
+        ext = Path(clean_filepath).suffix
+        if ext.lower() != '.fil':
+            logging.info(f"{filename} is not a filterbank file.")
+            continue
+
         if check_plots_exist(filename):
             logging.info(f"Skipping {filename}: both plots already exist.")
         else:

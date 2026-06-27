@@ -35,7 +35,7 @@ def compute_power_spectrum(time_series: np.ndarray, sampling_rate: float, chunk_
 
     return freqs, psd
 
-def uniform_statistical_averaging(freqs: np.ndarray, psd: np.ndarray, k:float =4):
+def uniform_statistical_averaging(freqs: np.ndarray, psd: np.ndarray, k:float=4):
     """
     Implements the binning procedure from the text.
     Returns a reduced number of points with constant fractional error.

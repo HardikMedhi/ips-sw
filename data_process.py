@@ -1,5 +1,6 @@
 import numpy as np
 from pathlib import Path
+from scipy import signal
 
 import file_utils as fut
 
@@ -15,6 +16,7 @@ def get_time_freqs(data: np.ndarray, tsampl: float, nchan: int, chan_bw: float, 
 
 def get_data_matrix(file_path: Path):
     """Read a supported file and reshape its data into samples x channels."""
+    file_path = Path(file_path)
     if not file_path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
 
@@ -95,3 +97,61 @@ def bp_norm_matrix(matrix:np.ndarray, bandpass:np.ndarray=None):
     bpnorm_matrix = matrix / bandpass_safe
 
     return bpnorm_matrix
+
+def remove_running_median(time_series: np.ndarray, sampling_rate: float, window_duration:float=10):
+    """
+    Remove running median from time series.
+    
+    Parameters:
+    -----------
+    time_series : ndarray
+        Input time series
+    sampling_rate : float
+        Sampling rate in Hz
+    window_duration : float
+        Duration of running median window in seconds (default: 10)
+        
+    Returns:
+    --------
+    detrended : ndarray
+        Time series with running median removed
+    """
+    window_size = int(window_duration * sampling_rate)
+    # Ensure odd window size for medfilt
+    if window_size % 2 == 0:
+        window_size += 1
+    
+    running_median = signal.medfilt(time_series, kernel_size=window_size)
+    detrended = time_series - running_median
+    
+    return detrended
+
+def despike(time_series:np.ndarray, kernel_size:float=3, threshold:float=6):
+    """
+    Remove narrow spikes using a MAD filter and a given threshold.
+    This is used to remove 1PPS narrow pulses from the offsource region
+    to get better RMS noise estimates.
+    
+    Parameters:
+    -----------
+    time_series : ndarray
+        Input time series
+    kernel_size : int
+        Size of the median filter kernel (default: 3)
+    threshold : float
+        Threshold for spike detection in units of MAD (default: 3.5)
+        
+    Returns:
+    --------
+    data : ndarray
+        Despicked time series
+    """
+    data = time_series.copy()  # Don't modify input array
+    
+    med_filtered = signal.medfilt(data, kernel_size=kernel_size)
+    diff = data - med_filtered
+    mad = np.median(np.abs(diff)) / 0.6744897501960817
+    mask = np.abs(diff) > (threshold * mad)
+    data[mask] = med_filtered[mask]
+    
+    return data

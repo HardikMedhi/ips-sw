@@ -1,8 +1,10 @@
 from pathlib import Path
+import pickle
 
 import time_utils as tut
 
-PLOTS_DIR = Path("~/PhD/plots/ds").expanduser()
+#PLOTS_DIR = Path("~/PhD/plots/ds").expanduser()
+PLOTS_DIR = Path("/data/PhD/thesis/plots/ds/")
 
 def get_datefile_dict():
     file_paths = [p for p in PLOTS_DIR.iterdir() if p.is_file()]
@@ -22,6 +24,10 @@ def get_datefile_dict():
         date_file_dict[date].append(f)
 
     date_file_dict = {k:date_file_dict[k] for k in sorted(date_file_dict)}
+
+    # pickle_filename = PLOTS_DIR / "date_file_dict.pkl"
+    # with open(pickle_filename, "wb") as file:
+    #     pickle.dump(date_file_dict, file)
 
     return date_file_dict
 
