@@ -31,10 +31,9 @@ REMOTE_USER = "pulsar1"
 REMOTE_HOST = "pulsar1"
 REMOTE_DIR = "/data/ips"
 LOCAL_DATA_DIR = Path("/data/IPS")
-PLOT_DIR = Path("/home/hardikmedhi/PhD/plots/ps")
-PLOT_DIR = Path("/data/PhD/thesis/plots/ps")
+PLOT_DIR = Path("~/PhD/plots/ps").expanduser()
 START_DATE = '2026-04-01'
-#LOG_FILE = Path("/home/hardikmedhi/PhD/logs/pipeline_plot_ps.log")
+LOG_FILE = Path("/home/hardikmedhi/PhD/logs/pipeline_plot_ps.log")
 
 F1 = 330 #Hz
 F2 = 322 #Hz
@@ -42,13 +41,13 @@ F2 = 322 #Hz
 # ==========================================
 # Logging Setup
 # ==========================================
-# LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-# logging.basicConfig(
-#     level=logging.INFO,
-#     format="%(asctime)s [%(levelname)s] %(message)s",
-#     datefmt="%Y-%m-%d %H:%M:%S",
-#     handlers=[logging.FileHandler(LOG_FILE)]
-# )
+LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[logging.FileHandler(LOG_FILE)]
+)
 
 # ==========================================
 # Utilities
@@ -90,7 +89,7 @@ def get_recent_remote_files() -> list:
     try:
         result = subprocess.run(ssh_cmd, capture_output=True, text=True, check=True)
         # Strip the leading './' that `find` prepends to each path
-        files = [line.lstrip("./") for line in result.stdout.strip().split("\n") if line]
+        files = [line for line in result.stdout.strip().split("\n") if line]
         return files
     except subprocess.CalledProcessError as e:
         logging.error(f"Failed to fetch remote file list: {e.stderr}")
@@ -176,7 +175,7 @@ def cleanup_data(local_file: Path):
 
 def setup_directories():
     """Create the local data and plot output directories if they don't exist."""
-    #LOCAL_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    LOCAL_DATA_DIR.mkdir(parents=True, exist_ok=True)
     PLOT_DIR.mkdir(parents=True, exist_ok=True)
 
 def get_files_process(pairs_dict: dict) -> dict:
@@ -186,10 +185,9 @@ def get_files_process(pairs_dict: dict) -> dict:
         date_folder_path = PLOT_DIR / k
         if not date_folder_path.exists() or list(date_folder_path.iterdir()) == 0:
             date_folder_path.mkdir(exist_ok=True)
-            pairs_dict_flags[k] = [
+            for pair in v:
                 list(pair).append(True)
-                for pair in v
-            ]
+            pairs_dict_flags[k] = v
             continue
 
         for pair in v:
@@ -205,7 +203,12 @@ def get_files_process(pairs_dict: dict) -> dict:
             plot_filename = f"{onsrc_name}_{offsrc_name}_{mjd}_{F1:.2f}_{F2:.2f}_scint_power_spec.jpeg"
             plot_filepath = date_folder_path / plot_filename
 
-            pair.append(False) if plot_filepath.exists() else pair.append(True)
+            if plot_filepath.exists():
+                logging.info(f"{plot_filepath} exists. Skipping.")
+                pair.append(False)
+            else:
+               # logging.info(f"{plot_filepath} doesn't exist. Proceeding.")
+                pair.append(True)
 
     files_to_process = {}
     for k,v in pairs_dict_flags.items():
@@ -217,21 +220,21 @@ def get_files_process(pairs_dict: dict) -> dict:
 
     return files_to_process   
 
-def process_pair(pair: list):
+def process_pair(date:str, pair: list):
     local_onsrc_path = LOCAL_DATA_DIR / pair[0].name
     local_offsrc_path = LOCAL_DATA_DIR / pair[1].name
 
     if not Path(local_onsrc_path).exists():
-        download_data(local_onsrc_path)
+        download_data(pair[0])
 
     if not Path(local_offsrc_path).exists():
-        download_data(local_offsrc_path)
+        download_data(pair[1])
 
-    cmd = f"python3 plot_ps_scint.py --f1 {F1} --f2 {F2} --uni-stat-avg 4 {local_onsrc_path} --offsrc {local_offsrc_path} --save {PLOT_DIR}"
+    cmd = f"python3 plot_ps_scint.py --f1 {F1} --f2 {F2} --uni-stat-avg 4 {local_onsrc_path} --offsrc {local_offsrc_path} --save {PLOT_DIR / date}"
     try:
         subprocess.run(cmd.split(" "), capture_output=True, text=True, check=True)
     except subprocess.CalledProcessError as e:
-        logging.error(f"Failed to process {local_onsrc_path.name} and {local_offsrc_path.name}: {e.stderr}")
+        logging.error(f"Failed to process {local_onsrc_path.name} and {local_offsrc_path.name}: {e.stderr}\n{cmd}")
     finally:
         return [local_onsrc_path, local_offsrc_path]
 
@@ -254,24 +257,30 @@ def main():
         logging.info("No new files found on the remote server.")
         return
     
+    logging.info("Getting on-off pairs")
     pairs_dict = get_onoff_pairs(remote_files)
 
+    logging.info("Getting the pairs to be processed.")
     files_to_process = get_files_process(pairs_dict)
 
-    for pair in files_to_process['20260522'][:2]:
-        process_pair(pair)
+    if len(files_to_process.items()) == 0:
+        logging.info("No pairs to process.")
+        return
 
-    # for clean_filepath in tqdm(files_to_process, desc="Processing files", unit="file", disable=not sys.stdout.isatty()):
-    #     process_file(clean_filepath)
+    logging.info("Processing the pairs.")
+    file_paths = []
+    # for pair in files_to_process['20260522'][:2]:
+    #     paths = process_pair('20260522', pair)
+    #     file_paths.append(paths)
+    for k, v in files_to_process.items():
+        for pair in v:
+            paths = process_pair(k, pair)
+            file_paths.append(paths)
 
-    # for k, v in files_to_process.items():
-    #     print("*"*20)
-    #     print(k)
-    #     for pair in v:
-    #         print(f"ON - {pair[0]}")
-    #         print(f"OFF - {pair[1]}\n")
-
-    #     print("*"*20)
+    logging.info("Cleaning data.")
+    file_paths = sum(file_paths, [])
+    for f in file_paths:
+        cleanup_data(f)
 
     logging.info("Pipeline execution complete.")
 

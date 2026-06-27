@@ -40,7 +40,7 @@ def visualize_scint_ps(psd_arr: np.ndarray, freqs: np.ndarray, f1:float, f2:floa
     ax.set_ylabel("Power (dB)", fontsize=11)
 
     mjd_dt = tut.mjd_to_datetime(onsrc_fb.mjd).strftime('%Y-%m-%d %H:%M:%S')
-    title = f"{onsrc_name} - {offsrc_name}\n{mjd_dt}\n{f2:.2f}-{f1:.2f} MHz"
+    title = f"{onsrc_name} - {offsrc_name}\n{mjd_dt}\n{f2:.2f} - {f1:.2f} MHz"
     ax.set_title(title, fontsize=12, fontweight='bold')
     ax.grid(True, alpha=0.3)
     ax.legend(loc='best')
