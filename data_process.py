@@ -155,3 +155,11 @@ def despike(time_series:np.ndarray, kernel_size:float=3, threshold:float=6):
     data[mask] = med_filtered[mask]
     
     return data
+
+def calc_snr(onsrc_ts:np.ndarray, offsrc_ts:np.ndarray):
+    on_mu = np.mean(onsrc_ts)
+    off_mu = np.mean(offsrc_ts)
+    off_std = np.std(offsrc_ts, ddof=1)
+
+    snr = (on_mu - off_mu) / off_std
+    return snr

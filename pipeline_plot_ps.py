@@ -248,6 +248,13 @@ def process_date_files(item: tuple):
 
     return file_paths
 
+def get_total_num_pairs(pairs_dict: dict):
+    total = 0
+    for v in pairs_dict.values():
+        total += len(v)
+
+    return total
+
 # ==========================================
 # Main Execution Flow
 # ==========================================
@@ -277,24 +284,24 @@ def main():
         logging.info("No pairs to process.")
         return
 
-    logging.info("Processing the pairs.")
+    logging.info(f"Processing the pairs.\n{get_total_num_pairs(files_to_process)} out of {get_total_num_pairs(pairs_dict)}")
     file_paths = []
 
-    processes = max(1, min(len(files_to_process), max(1, multiprocessing.cpu_count() - 5)))
-    with multiprocessing.Pool(processes=processes) as pool:
-        for paths in tqdm(
-            pool.imap(process_date_files, files_to_process.items()),
-            total=len(files_to_process),
-            desc="Processing dates",
-        ):
-            file_paths.extend(paths)
+    # processes = 5#max(1, min(len(files_to_process), max(1, multiprocessing.cpu_count() - 5)))
+    # with multiprocessing.Pool(processes=processes) as pool:
+    #     for paths in tqdm(
+    #         pool.imap(process_date_files, files_to_process.items()),
+    #         total=len(files_to_process),
+    #         desc="Processing dates",
+    #     ):
+    #         file_paths.extend(paths)
 
-    logging.info("Cleaning data.")
-    file_paths = sum(file_paths, [])
-    for f in file_paths:
-        cleanup_data(f)
+    # logging.info("Cleaning data.")
+    # file_paths = sum(file_paths, [])
+    # for f in file_paths:
+    #     cleanup_data(f)
 
-    logging.info("Pipeline execution complete.")
+    # logging.info("Pipeline execution complete.")
 
 if __name__ == "__main__":
     main()

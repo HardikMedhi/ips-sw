@@ -11,7 +11,7 @@ import data_process as dpr
 import power_spec
 from filterbank import Filterbank
 
-def visualize_scint_ps(psd_arr: np.ndarray, freqs: np.ndarray, f1:float, f2:float,
+def visualize_scint_ps(psd_arr: np.ndarray, freqs: np.ndarray, f1:float, f2:float, snr:float,
                        onsrc_name:str, offsrc_name:str, mjd:str,
                        nodb:bool=False, save_folder_path:Path=None):
     
@@ -40,7 +40,7 @@ def visualize_scint_ps(psd_arr: np.ndarray, freqs: np.ndarray, f1:float, f2:floa
     ax.set_ylabel("Power (dB)", fontsize=11)
 
     mjd_dt = tut.mjd_to_datetime(onsrc_fb.mjd).strftime('%Y-%m-%d %H:%M:%S')
-    title = f"{onsrc_name} - {offsrc_name}\n{mjd_dt}\n{f2:.2f} - {f1:.2f} MHz"
+    title = f"{onsrc_name} - {offsrc_name} | SNR = {snr:.2f}\n{mjd_dt}\n{f2:.2f} - {f1:.2f} MHz"
     ax.set_title(title, fontsize=12, fontweight='bold')
     ax.grid(True, alpha=0.3)
     ax.legend(loc='best')
@@ -137,7 +137,7 @@ def get_ps(fb_obj: Filterbank,
 
     freqs, psd = power_spec.compute_power_spectrum(time_profile, sampling_rate)
 
-    return freqs, psd
+    return freqs, psd, time_profile
 
 if __name__ == "__main__":
     onsrc_filepath, offsrc_filepaths, nodb, nodetrend, nodespike, f1, f2, bpnorm, save_folder_path, uni_stat_avg = get_args()
@@ -148,9 +148,10 @@ if __name__ == "__main__":
         offsrc_fb = Filterbank(Path(offsrc))
 
         #TODO: Very inefficient to repeat the on source PS calculation! Figure out a solution!!!
-        freqs, onsrc_psd = get_ps(onsrc_fb, f1, f2, bpnorm, nodetrend, nodespike)
-        freqs, offsrc_psd = get_ps(offsrc_fb, f1, f2, bpnorm, nodetrend, nodespike)
+        freqs, onsrc_psd, onsrc_ts = get_ps(onsrc_fb, f1, f2, bpnorm, nodetrend, nodespike)
+        freqs, offsrc_psd, offsrc_ts = get_ps(offsrc_fb, f1, f2, bpnorm, nodetrend, nodespike)
         scint_psd = onsrc_psd - offsrc_psd
+        snr = dpr.calc_snr(onsrc_ts, offsrc_ts)
 
         if uni_stat_avg is not None:
             freqs_avg, scint_psd, _ = power_spec.uniform_statistical_averaging(freqs, scint_psd, uni_stat_avg)
@@ -162,7 +163,7 @@ if __name__ == "__main__":
         f1 = f1 if f1 is not None else onsrc_fb.freq_channels[0]
         f2 = f2 if f2 is not None else onsrc_fb.freq_channels[-1]
         visualize_scint_ps(
-            np.array([scint_psd, onsrc_psd, offsrc_psd]), freqs, f1, f2,
+            np.array([scint_psd, onsrc_psd, offsrc_psd]), freqs, f1, f2, snr,
             onsrc_fb.source_name, offsrc_fb.source_name, onsrc_fb.mjd,
             nodb, save_folder_path
         )
