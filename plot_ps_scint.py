@@ -11,7 +11,8 @@ import data_process as dpr
 import power_spec
 from filterbank import Filterbank
 
-def visualize_scint_ps(psd_arr: np.ndarray, freqs: np.ndarray, f1:float, f2:float, snr:float,
+def visualize_scint_ps(psd_arr: np.ndarray, freqs: np.ndarray, 
+                       f1:float, f2:float, t1:float, t2:float, snr:float,
                        onsrc_name:str, offsrc_name:str, mjd:str,
                        nodb:bool=False, save_folder_path:Path=None):
     
@@ -40,7 +41,7 @@ def visualize_scint_ps(psd_arr: np.ndarray, freqs: np.ndarray, f1:float, f2:floa
     ax.set_ylabel("Power (dB)", fontsize=11)
 
     mjd_dt = tut.mjd_to_datetime(onsrc_fb.mjd).strftime('%Y-%m-%d %H:%M:%S')
-    title = f"{onsrc_name} - {offsrc_name} | SNR = {snr:.2f}\n{mjd_dt}\n{f2:.2f} - {f1:.2f} MHz"
+    title = f"{onsrc_name} - {offsrc_name} | SNR = {snr:.2f}\n{mjd_dt}\n{f2:.2f} - {f1:.2f} MHz | {t1:.2f} - {t2:.2f} s"
     ax.set_title(title, fontsize=12, fontweight='bold')
     ax.grid(True, alpha=0.3)
     ax.legend(loc='best')
@@ -83,9 +84,13 @@ def get_args():
     parser.add_argument('--save', type=str, default=None,
                        help='Folder to save the plot (if not provided, plot will be displayed)')
     parser.add_argument('--f1', type=float, default=None,
-                       help='Higher frequency in MHz (default: filterbank start frequency)')
+                       help='Higher frequency in MHz')
     parser.add_argument('--f2', type=float, default=None,
-                       help='Lower frequency in MHz (default: filterbank end frequency)')
+                       help='Lower frequency in MHz')
+    parser.add_argument('--t1', type=float, default=None,
+                    help='Lower time value in seconds')
+    parser.add_argument('--t2', type=float, default=None,
+                       help='Higher time value in seconds')
     parser.add_argument('--bpnorm', action='store_true',
                        help='Use a bandpass-normalized data')
     parser.add_argument('--uni-stat-avg', type=float, default=None, dest='uni_stat_avg',
@@ -107,19 +112,23 @@ def get_args():
     nodespike = args.nodespike
     save_folder_path = Path(args.save) if args.save is not None else None
     f1, f2 = args.f1, args.f2
+    t1, t2 = args.t1, args.t2
     bpnorm = args.bpnorm
     uni_stat_avg = args.uni_stat_avg
 
-    return onsrc_filepath, offsrc_filepaths, nodb, nodetrend, nodespike, f1, f2, bpnorm, save_folder_path, uni_stat_avg
+    return onsrc_filepath, offsrc_filepaths, nodb, nodetrend, nodespike, f1, f2, t1, t2, bpnorm, save_folder_path, uni_stat_avg
 
 def get_ps(fb_obj: Filterbank, 
            f1:float=None, f2:float=None, 
+           t1:float=None, t2:float=None,
            bpnorm:bool=False,
            nodetrend:bool=False, nodespike:bool=False):
     matrix = fb_obj.matrix
 
     if f1 is not None or f2 is not None:
-        matrix, _ = dpr.get_sub_matrix(matrix, f1, f2, fb_obj.freq_channels)
+        matrix, _ = dpr.get_sub_matrix_freq(matrix, f1, f2, fb_obj.freq_channels)
+    if t1 is not None or t2 is not None:
+        matrix, _ = dpr.get_sub_matrix_time(matrix, t1, t2, fb_obj.time_samples)
 
     if bpnorm:
         matrix = dpr.bp_norm_matrix(matrix)
@@ -137,10 +146,10 @@ def get_ps(fb_obj: Filterbank,
 
     freqs, psd = power_spec.compute_power_spectrum(time_profile, sampling_rate)
 
-    return freqs, psd, time_profile
+    return freqs, psd
 
 if __name__ == "__main__":
-    onsrc_filepath, offsrc_filepaths, nodb, nodetrend, nodespike, f1, f2, bpnorm, save_folder_path, uni_stat_avg = get_args()
+    onsrc_filepath, offsrc_filepaths, nodb, nodetrend, nodespike, f1, f2, t1, t2, bpnorm, save_folder_path, uni_stat_avg = get_args()
 
     onsrc_fb = Filterbank(onsrc_filepath)   
 
@@ -148,9 +157,12 @@ if __name__ == "__main__":
         offsrc_fb = Filterbank(Path(offsrc))
 
         #TODO: Very inefficient to repeat the on source PS calculation! Figure out a solution!!!
-        freqs, onsrc_psd, onsrc_ts = get_ps(onsrc_fb, f1, f2, bpnorm, nodetrend, nodespike)
-        freqs, offsrc_psd, offsrc_ts = get_ps(offsrc_fb, f1, f2, bpnorm, nodetrend, nodespike)
+        freqs, onsrc_psd = get_ps(onsrc_fb, f1, f2, t1, t2, bpnorm, nodetrend, nodespike)
+        freqs, offsrc_psd = get_ps(offsrc_fb, f1, f2, t1, t2, bpnorm, nodetrend, nodespike)
         scint_psd = onsrc_psd - offsrc_psd
+
+        onsrc_ts = np.nanmean(onsrc_fb.matrix, axis=1)
+        offsrc_ts = np.nanmean(offsrc_fb.matrix, axis=1)
         snr = dpr.calc_snr(onsrc_ts, offsrc_ts)
 
         if uni_stat_avg is not None:
@@ -162,8 +174,13 @@ if __name__ == "__main__":
 
         f1 = f1 if f1 is not None else onsrc_fb.freq_channels[0]
         f2 = f2 if f2 is not None else onsrc_fb.freq_channels[-1]
+
+        t1 = t1 if t1 is not None else onsrc_fb.time_samples[0]
+        t2 = t2 if t2 is not None else onsrc_fb.time_samples[-1]
+
         visualize_scint_ps(
-            np.array([scint_psd, onsrc_psd, offsrc_psd]), freqs, f1, f2, snr,
+            np.array([scint_psd, onsrc_psd, offsrc_psd]), freqs, 
+            f1, f2, t1, t2, snr,
             onsrc_fb.source_name, offsrc_fb.source_name, onsrc_fb.mjd,
             nodb, save_folder_path
         )

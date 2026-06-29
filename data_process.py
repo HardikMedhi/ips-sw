@@ -48,7 +48,7 @@ def get_data_matrix(file_path: Path):
 
     return reshaped_data
 
-def get_sub_matrix(matrix: np.ndarray, f1:float, f2:float, freq_channels: np.ndarray):
+def get_sub_matrix_freq(matrix: np.ndarray, f1:float, f2:float, freq_channels: np.ndarray):
     """Extract a frequency sub-band from the full matrix and channel axis."""
     if f1 is None and f2 is None:
         print("No f1 and f2 provided!")
@@ -71,6 +71,30 @@ def get_sub_matrix(matrix: np.ndarray, f1:float, f2:float, freq_channels: np.nda
     print(f"  Filtered data shape: {sub_matrix.shape} (samples × channels)")
 
     return sub_matrix, sub_freq_channels
+
+def get_sub_matrix_time(matrix: np.ndarray, t1:float, t2:float, time_samples: np.ndarray):
+    """Extract a time sub-band from the full matrix and channel axis."""
+    if t1 is None and t2 is None:
+        print("No t1 and t2 provided!")
+        return matrix, time_samples
+
+    # Use the data's native time range as the reference bounds.
+    t_start = time_samples[0]
+    t_end = time_samples[-1]
+
+    # Clamp the requested times to the available band.
+    time1 = max(t1, t_start) if t1 is not None else t_start
+    time2 = min(t2, t_end) if t2 is not None else t_end
+
+    # Keep only the samples inside the selected band.
+    time_mask = (time1 <= time_samples) & (time_samples <= time2)
+    sub_matrix = matrix[time_mask, :]
+    sub_time_samples = time_samples[time_mask]
+    
+    print(f"  Time range: {time1:.2f} - {time2:.2f} s")
+    print(f"  Filtered data shape: {sub_matrix.shape} (samples × channels)")
+
+    return sub_matrix, sub_time_samples
 
 def get_median_bandpass(matrix: np.ndarray):
     """Return the per-channel median across time for bandpass correction."""
@@ -160,6 +184,8 @@ def calc_snr(onsrc_ts:np.ndarray, offsrc_ts:np.ndarray):
     on_mu = np.mean(onsrc_ts)
     off_mu = np.mean(offsrc_ts)
     off_std = np.std(offsrc_ts, ddof=1)
+
+    print(on_mu, off_mu, off_std)
 
     snr = (on_mu - off_mu) / off_std
     return snr

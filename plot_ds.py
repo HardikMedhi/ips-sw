@@ -10,6 +10,7 @@ from filterbank import Filterbank
 
 def visualize_ds(fb_obj: Filterbank, 
                  f1:float=None, f2:float=None,
+                 t1:float=None, t2:float=None,
                  bpnorm:bool=False, save_folder_path:Path=None):
     """Plot a dynamic spectrum and its mean time/frequency profiles.
 
@@ -20,10 +21,15 @@ def visualize_ds(fb_obj: Filterbank,
     # Start from the full matrix, then optionally crop the frequency range.
     matrix = fb_obj.matrix 
     freq_chans = fb_obj.freq_channels
+    time_samples = fb_obj.time_samples
 
     if f1 is not None or f2 is not None:
-        matrix, sub_freq_chan = dpr.get_sub_matrix(matrix, f1, f2, fb_obj.freq_channels)
+        matrix, sub_freq_chan = dpr.get_sub_matrix_freq(matrix, f1, f2, fb_obj.freq_channels)
         freq_chans = sub_freq_chan
+
+    if t1 is not None or t2 is not None:
+        matrix, sub_time_samples = dpr.get_sub_matrix_time(matrix, t1, t2, fb_obj.time_samples)
+        time_samples = sub_time_samples
 
     filename_suffix = ''
     if bpnorm:
@@ -69,9 +75,10 @@ def visualize_ds(fb_obj: Filterbank,
     
     # Time series (below main plot)
     ax_time = fig.add_subplot(gs[1, 1], sharex=ax_main)
-    ax_time.plot(fb_obj.time_samples, time_profile, color='black', linewidth=1)
+    ax_time.plot(time_samples, time_profile, color='black', linewidth=1)
     ax_time.set_xlabel("Time (s)", fontsize=11)
     ax_time.set_ylabel("Mean Intensity", fontsize=10)
+    ax_time.set_xlim(time_samples[0], time_samples[-1])
     ax_time.grid(True, alpha=0.3)
     
     # Frequency series (right of main plot)
@@ -123,9 +130,13 @@ Example:
     parser.add_argument('--save', type=str, default=None,
                        help='Folder to save the plot (if not provided, plot will be displayed)')
     parser.add_argument('--f1', type=float, default=None,
-                       help='Higher frequency in MHz (default: filterbank start frequency)')
+                       help='Higher frequency in MHz')
     parser.add_argument('--f2', type=float, default=None,
-                       help='Lower frequency in MHz (default: filterbank end frequency)')
+                       help='Lower frequency in MHz')
+    parser.add_argument('--t1', type=float, default=None,
+                       help='Lower time value in seconds')
+    parser.add_argument('--t2', type=float, default=None,
+                       help='Higher time value in seconds')
     parser.add_argument('--bpnorm', action='store_true',
                        help='Also produce a bandpass-normalized dynamic spectrum plot')
     
@@ -135,15 +146,16 @@ Example:
     file_path = Path(args.file_path)
     save_folder_path = Path(args.save) if args.save is not None else None
     f1, f2 = args.f1, args.f2
+    t1, t2 = args.t1, args.t2
     bpnorm = args.bpnorm
 
-    return file_path, f1, f2, bpnorm, save_folder_path
+    return file_path, f1, f2, t1, t2, bpnorm, save_folder_path
 
 if __name__ == "__main__":
-    file_path, f1, f2, bpnorm, save_folder_path = get_args()
+    file_path, f1, f2, t1, t2, bpnorm, save_folder_path = get_args()
     fb_obj = Filterbank(file_path)
     
-    visualize_ds(fb_obj, f1, f2, bpnorm, save_folder_path)
+    visualize_ds(fb_obj, f1, f2, t1, t2, bpnorm, save_folder_path)
     
 
     
