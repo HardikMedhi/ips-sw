@@ -238,6 +238,16 @@ def process_pair(date:str, pair: list):
     finally:
         return [local_onsrc_path, local_offsrc_path]
 
+def process_date_files(item: tuple):
+    date, pairs = item
+    file_paths = []
+
+    for pair in pairs:
+        paths = process_pair(date, pair)
+        file_paths.append(paths)
+
+    return file_paths
+
 # ==========================================
 # Main Execution Flow
 # ==========================================
@@ -269,13 +279,15 @@ def main():
 
     logging.info("Processing the pairs.")
     file_paths = []
-    # for pair in files_to_process['20260522'][:2]:
-    #     paths = process_pair('20260522', pair)
-    #     file_paths.append(paths)
-    for k, v in files_to_process.items():
-        for pair in v:
-            paths = process_pair(k, pair)
-            file_paths.append(paths)
+
+    processes = max(1, min(len(files_to_process), max(1, multiprocessing.cpu_count() - 5)))
+    with multiprocessing.Pool(processes=processes) as pool:
+        for paths in tqdm(
+            pool.imap(process_date_files, files_to_process.items()),
+            total=len(files_to_process),
+            desc="Processing dates",
+        ):
+            file_paths.extend(paths)
 
     logging.info("Cleaning data.")
     file_paths = sum(file_paths, [])
