@@ -1,3 +1,4 @@
+import gc
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
@@ -41,7 +42,7 @@ def visualize_scint_ps(psd_arr: np.ndarray, freqs: np.ndarray,
     ax.set_ylabel("Power (dB)", fontsize=11)
 
     mjd_dt = tut.mjd_to_datetime(onsrc_fb.mjd).strftime('%Y-%m-%d %H:%M:%S')
-    title = f"{onsrc_name} - {offsrc_name} | SNR = {snr:.2f}\n{mjd_dt}\n{f2:.2f} - {f1:.2f} MHz | {t1:.2f} - {t2:.2f} s"
+    title = f"{onsrc_name} - {offsrc_name}\n{mjd_dt}\n{f2:.2f} - {f1:.2f} MHz | {t1:.2f} - {t2:.2f} s"
     ax.set_title(title, fontsize=12, fontweight='bold')
     ax.grid(True, alpha=0.3)
     ax.legend(loc='best')
@@ -163,7 +164,7 @@ if __name__ == "__main__":
 
         onsrc_ts = np.nanmean(onsrc_fb.matrix, axis=1)
         offsrc_ts = np.nanmean(offsrc_fb.matrix, axis=1)
-        snr = dpr.calc_snr(onsrc_ts, offsrc_ts)
+        snr = None#dpr.calc_snr(onsrc_ts, offsrc_ts)
 
         if uni_stat_avg is not None:
             freqs_avg, scint_psd, _ = power_spec.uniform_statistical_averaging(freqs, scint_psd, uni_stat_avg)
@@ -184,6 +185,9 @@ if __name__ == "__main__":
             onsrc_fb.source_name, offsrc_fb.source_name, onsrc_fb.mjd,
             nodb, save_folder_path
         )
+
+        del offsrc_fb, offsrc_psd, offsrc_ts, scint_psd, freqs
+        gc.collect()
 
 
 

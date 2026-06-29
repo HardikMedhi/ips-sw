@@ -124,7 +124,7 @@ def get_onoff_pairs(files: list):
             else:
                 onsrcs.append(f)
 
-        pairs = list(it.product(onsrcs, offsrcs))
+        pairs = [list(l) for l in list(it.product(onsrcs, offsrcs))]
         pairs_dict[k] = pairs
 
     return pairs_dict
@@ -186,12 +186,11 @@ def get_files_process(pairs_dict: dict) -> dict:
         if not date_folder_path.exists() or list(date_folder_path.iterdir()) == 0:
             date_folder_path.mkdir(exist_ok=True)
             for pair in v:
-                list(pair).append(True)
+                pair.append(True)
             pairs_dict_flags[k] = v
             continue
 
         for pair in v:
-            pair = list(pair)
             onsrc_path = Path(pair[0])
             offsrc_path = Path(pair[1])
 
@@ -243,8 +242,13 @@ def process_date_files(item: tuple):
     file_paths = []
 
     for pair in pairs:
-        paths = process_pair(date, pair)
-        file_paths.append(paths)
+        try:
+            paths = process_pair(date, pair)
+            file_paths.append(paths)
+        except Exception:
+            logging.exception(
+                f"Unexpected error while processing pair for date {date}: {pair}"
+            )
 
     return file_paths
 
@@ -285,23 +289,28 @@ def main():
         return
 
     logging.info(f"Processing the pairs.\n{get_total_num_pairs(files_to_process)} out of {get_total_num_pairs(pairs_dict)}")
+    print(f"Processing the pairs.\n{get_total_num_pairs(files_to_process)} out of {get_total_num_pairs(pairs_dict)}")
+
     file_paths = []
 
-    # processes = 5#max(1, min(len(files_to_process), max(1, multiprocessing.cpu_count() - 5)))
-    # with multiprocessing.Pool(processes=processes) as pool:
-    #     for paths in tqdm(
-    #         pool.imap(process_date_files, files_to_process.items()),
-    #         total=len(files_to_process),
-    #         desc="Processing dates",
-    #     ):
-    #         file_paths.extend(paths)
+    try:
+        processes = 5#max(1, min(len(files_to_process), max(1, multiprocessing.cpu_count() - 5)))
+        with multiprocessing.Pool(processes=processes) as pool:
+            for paths in tqdm(
+                pool.imap(process_date_files, files_to_process.items()),
+                total=len(files_to_process),
+                desc="Processing dates",
+            ):
+                file_paths.extend(paths)
+    except Exception:
+        logging.exception("Unhandled error during multiprocessing execution.")
+    finally:
+        logging.info("Cleaning data.")
+        file_paths = sum(file_paths, [])
+        for f in file_paths:
+            cleanup_data(f)
 
-    # logging.info("Cleaning data.")
-    # file_paths = sum(file_paths, [])
-    # for f in file_paths:
-    #     cleanup_data(f)
-
-    # logging.info("Pipeline execution complete.")
+    logging.info("Pipeline execution complete.")
 
 if __name__ == "__main__":
     main()
