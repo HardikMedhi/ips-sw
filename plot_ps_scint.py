@@ -13,7 +13,7 @@ import power_spec
 from filterbank import Filterbank
 
 def visualize_scint_ps(psd_arr: np.ndarray, freqs: np.ndarray, 
-                       f1:float, f2:float, t1:float, t2:float, snr:float,
+                       f1:float, f2:float, t1:float, t2:float, crossover_freq:float,
                        onsrc_name:str, offsrc_name:str, mjd:str,
                        nodb:bool=False, save_folder_path:Path=None):
     
@@ -40,6 +40,9 @@ def visualize_scint_ps(psd_arr: np.ndarray, freqs: np.ndarray,
         
     ax.set_xlabel("Frequency (Hz)", fontsize=11)
     ax.set_ylabel("Power (dB)", fontsize=11)
+
+    ax.axvline(x=crossover_freq, color='black', linestyle=':', linewidth=1.5, 
+                   label=f'Crossover freq: {crossover_freq:.2f} Hz', alpha=0.6)
 
     mjd_dt = tut.mjd_to_datetime(onsrc_fb.mjd).strftime('%Y-%m-%d %H:%M:%S')
     title = f"{onsrc_name} - {offsrc_name}\n{mjd_dt}\n{f2:.2f} - {f1:.2f} MHz | {t1:.2f} - {t2:.2f} s"
@@ -173,6 +176,9 @@ if __name__ == "__main__":
 
             freqs = freqs_avg
 
+        # Get crossover frequency
+        crossover_freq = freqs[np.argmin(np.abs(scint_psd - offsrc_psd))]
+
         f1 = f1 if f1 is not None else onsrc_fb.freq_channels[0]
         f2 = f2 if f2 is not None else onsrc_fb.freq_channels[-1]
 
@@ -181,7 +187,7 @@ if __name__ == "__main__":
 
         visualize_scint_ps(
             np.array([scint_psd, onsrc_psd, offsrc_psd]), freqs, 
-            f1, f2, t1, t2, snr,
+            f1, f2, t1, t2, crossover_freq,
             onsrc_fb.source_name, offsrc_fb.source_name, onsrc_fb.mjd,
             nodb, save_folder_path
         )
