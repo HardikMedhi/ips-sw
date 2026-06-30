@@ -8,12 +8,13 @@ warnings.filterwarnings('ignore')
 
 import file_utils as fut
 import time_utils as tut
-import data_process as dpr
+import sc_index as sc
 import power_spec
 from filterbank import Filterbank
 
 def visualize_scint_ps(psd_arr: np.ndarray, freqs: np.ndarray, 
                        f1:float, f2:float, t1:float, t2:float, crossover_freq:float,
+                       m_ps:float, m_ts:float,
                        onsrc_name:str, offsrc_name:str, mjd:str,
                        nodb:bool=False, save_folder_path:Path=None):
     
@@ -44,11 +45,18 @@ def visualize_scint_ps(psd_arr: np.ndarray, freqs: np.ndarray,
     ax.axvline(x=crossover_freq, color='black', linestyle=':', linewidth=1.5, 
                    label=f'Crossover freq: {crossover_freq:.2f} Hz', alpha=0.6)
 
-    mjd_dt = tut.mjd_to_datetime(onsrc_fb.mjd).strftime('%Y-%m-%d %H:%M:%S')
+    mjd_dt = tut.mjd_to_datetime(mjd).strftime('%Y-%m-%d %H:%M:%S')
     title = f"{onsrc_name} - {offsrc_name}\n{mjd_dt}\n{f2:.2f} - {f1:.2f} MHz | {t1:.2f} - {t2:.2f} s"
     ax.set_title(title, fontsize=12, fontweight='bold')
     ax.grid(True, alpha=0.3)
     ax.legend(loc='best')
+
+    # Display m_ps and m_ts in a separate boxed text (not part of legend)
+    stats_text = f"m_ps: {m_ps:.2f}\nm_ts: {m_ts:.2f}"
+    ax.text(0.98, 0.02, stats_text, transform=ax.transAxes,
+        fontsize=10, verticalalignment='bottom', horizontalalignment='right',
+        bbox=dict(boxstyle='round,pad=0.4', facecolor='white', alpha=0.8, edgecolor='black'))
+
 
     if save_folder_path is not None:
         folder_path = Path(save_folder_path)
@@ -122,36 +130,6 @@ def get_args():
 
     return onsrc_filepath, offsrc_filepaths, nodb, nodetrend, nodespike, f1, f2, t1, t2, bpnorm, save_folder_path, uni_stat_avg
 
-def get_ps(fb_obj: Filterbank, 
-           f1:float=None, f2:float=None, 
-           t1:float=None, t2:float=None,
-           bpnorm:bool=False,
-           nodetrend:bool=False, nodespike:bool=False):
-    matrix = fb_obj.matrix
-
-    if f1 is not None or f2 is not None:
-        matrix, _ = dpr.get_sub_matrix_freq(matrix, f1, f2, fb_obj.freq_channels)
-    if t1 is not None or t2 is not None:
-        matrix, _ = dpr.get_sub_matrix_time(matrix, t1, t2, fb_obj.time_samples)
-
-    if bpnorm:
-        matrix = dpr.bp_norm_matrix(matrix)
-
-    sampling_rate = 1 / fb_obj.header.tsamp
-    time_profile = np.nanmean(matrix, axis=1)
-
-    if not nodetrend:
-        window_size = 10 #s
-        time_profile = dpr.remove_running_median(time_profile, sampling_rate, window_size)
-
-    if not nodespike:
-        kernel, threshold = 3, 6
-        time_profile = dpr.despike(time_profile, kernel, threshold)
-
-    freqs, psd = power_spec.compute_power_spectrum(time_profile, sampling_rate)
-
-    return freqs, psd
-
 if __name__ == "__main__":
     onsrc_filepath, offsrc_filepaths, nodb, nodetrend, nodespike, f1, f2, t1, t2, bpnorm, save_folder_path, uni_stat_avg = get_args()
 
@@ -161,13 +139,9 @@ if __name__ == "__main__":
         offsrc_fb = Filterbank(Path(offsrc))
 
         #TODO: Very inefficient to repeat the on source PS calculation! Figure out a solution!!!
-        freqs, onsrc_psd = get_ps(onsrc_fb, f1, f2, t1, t2, bpnorm, nodetrend, nodespike)
-        freqs, offsrc_psd = get_ps(offsrc_fb, f1, f2, t1, t2, bpnorm, nodetrend, nodespike)
+        freqs, onsrc_psd = power_spec.get_ps(onsrc_fb, f1, f2, t1, t2, bpnorm, nodetrend, nodespike)
+        freqs, offsrc_psd = power_spec.get_ps(offsrc_fb, f1, f2, t1, t2, bpnorm, nodetrend, nodespike)
         scint_psd = onsrc_psd - offsrc_psd
-
-        onsrc_ts = np.nanmean(onsrc_fb.matrix, axis=1)
-        offsrc_ts = np.nanmean(offsrc_fb.matrix, axis=1)
-        snr = None#dpr.calc_snr(onsrc_ts, offsrc_ts)
 
         if uni_stat_avg is not None:
             freqs_avg, scint_psd, _ = power_spec.uniform_statistical_averaging(freqs, scint_psd, uni_stat_avg)
@@ -176,18 +150,28 @@ if __name__ == "__main__":
 
             freqs = freqs_avg
 
-        # Get crossover frequency
-        crossover_freq = freqs[np.argmin(np.abs(scint_psd - offsrc_psd))]
-
         f1 = f1 if f1 is not None else onsrc_fb.freq_channels[0]
         f2 = f2 if f2 is not None else onsrc_fb.freq_channels[-1]
 
         t1 = t1 if t1 is not None else onsrc_fb.time_samples[0]
         t2 = t2 if t2 is not None else onsrc_fb.time_samples[-1]
 
+        # Get crossover frequency
+        crossover_freq = freqs[np.argmin(np.abs(scint_psd - offsrc_psd))]
+
+        onsrc_ts = np.nanmean(onsrc_fb.matrix, axis=1)
+        offsrc_ts = np.nanmean(offsrc_fb.matrix, axis=1)
+
+        m_ps, m_ts = sc.get_m_vals(
+            onsrc_fb, offsrc_fb,
+            scint_psd, freqs,
+            crossover_freq
+        )
+
         visualize_scint_ps(
             np.array([scint_psd, onsrc_psd, offsrc_psd]), freqs, 
             f1, f2, t1, t2, crossover_freq,
+            m_ps, m_ts,
             onsrc_fb.source_name, offsrc_fb.source_name, onsrc_fb.mjd,
             nodb, save_folder_path
         )

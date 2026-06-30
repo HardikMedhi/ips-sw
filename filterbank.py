@@ -94,4 +94,4 @@ class Filterbank:
         return self._freq_channels
 
 
-    
+    #TODO: Add a power spectrum property!!
