@@ -52,9 +52,9 @@ def visualize_scint_ps(psd_arr: np.ndarray, freqs: np.ndarray,
     ax.legend(loc='best')
 
     # Display m_ps and m_ts in a separate boxed text (not part of legend)
-    stats_text = f"m_ps: {m_ps:.2f}\nm_ts: {m_ts:.2f}"
-    ax.text(0.98, 0.02, stats_text, transform=ax.transAxes,
-        fontsize=10, verticalalignment='bottom', horizontalalignment='right',
+    stats_text = f"m (PS): {m_ps:.4e}\n m (TS): {m_ts:.4e}"
+    ax.text(0.18, 0.02, stats_text, transform=ax.transAxes,
+        fontsize=12, verticalalignment='bottom', horizontalalignment='right',
         bbox=dict(boxstyle='round,pad=0.4', facecolor='white', alpha=0.8, edgecolor='black'))
 
 

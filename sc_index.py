@@ -81,14 +81,14 @@ def get_m_vals(onsrc_fb: Filterbank, offsrc_fb: Filterbank,
     
     onsrc_median_bp = dpr.get_median_bandpass(onsrc_fb.matrix)
     offsrc_median_bp = dpr.get_median_bandpass(offsrc_fb.matrix)
-    defln = onsrc_median_bp - offsrc_median_bp
+    defln = np.nanmedian(onsrc_median_bp - offsrc_median_bp)
 
     # m from PS
     m_ps = get_m_ps(scint_psd, scint_freqs, crossover_freq, defln=defln)
 
     # m from TS
-    onsrc_ts_bpnorm = np.mean(dpr.bp_norm_matrix(onsrc_fb.matrix), axis=1)
-    offsrc_ts_bpnorm = np.mean(dpr.bp_norm_matrix(offsrc_fb.matrix), axis=1)
+    onsrc_ts_bpnorm = np.nanmean(dpr.bp_norm_matrix(onsrc_fb.matrix), axis=1)
+    offsrc_ts_bpnorm = np.nanmean(dpr.bp_norm_matrix(offsrc_fb.matrix), axis=1)
 
     m_ts = get_m_ts(onsrc_ts_bpnorm, offsrc_ts_bpnorm, defln=defln)
 

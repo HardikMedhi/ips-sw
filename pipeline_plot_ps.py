@@ -37,6 +37,10 @@ LOG_FILE = Path("/home/hardikmedhi/PhD/logs/pipeline_plot_ps.log")
 
 F1 = 330 #Hz
 F2 = 322 #Hz
+RSYNC_TIMEOUT_S = 300
+PLOT_TIMEOUT_S = 900
+DATE_TASK_TIMEOUT_S = 1800
+POOL_PROCESSES = 5
 
 # ==========================================
 # Logging Setup
@@ -148,8 +152,18 @@ def download_data(filepath: str) -> bool:
 
     try:
         logging.info(f"Downloading: {filepath}...")
-        subprocess.run(rsync_cmd, check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(
+            rsync_cmd,
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=RSYNC_TIMEOUT_S,
+        )
         return True
+    except subprocess.TimeoutExpired:
+        logging.error(f"Rsync timed out for {filepath} after {RSYNC_TIMEOUT_S}s")
+        return False
     except subprocess.CalledProcessError as e:
         logging.error(f"Rsync failed for {filepath}: {e}")
         return False
@@ -183,7 +197,7 @@ def get_files_process(pairs_dict: dict) -> dict:
 
     for k, v in pairs_dict.items():
         date_folder_path = PLOT_DIR / k
-        if not date_folder_path.exists() or list(date_folder_path.iterdir()) == 0:
+        if not date_folder_path.exists() or not any(date_folder_path.iterdir()):
             date_folder_path.mkdir(exist_ok=True)
             for pair in v:
                 pair.append(True)
@@ -224,18 +238,48 @@ def process_pair(date:str, pair: list):
     local_offsrc_path = LOCAL_DATA_DIR / pair[1].name
 
     if not Path(local_onsrc_path).exists():
-        download_data(pair[0])
+        if not download_data(pair[0]):
+            logging.error(f"Skipping pair due to failed on-source download: {pair[0]}")
+            return [local_onsrc_path, local_offsrc_path]
 
     if not Path(local_offsrc_path).exists():
-        download_data(pair[1])
+        if not download_data(pair[1]):
+            logging.error(f"Skipping pair due to failed off-source download: {pair[1]}")
+            return [local_onsrc_path, local_offsrc_path]
 
-    cmd = f"python3 plot_ps_scint.py --f1 {F1} --f2 {F2} --uni-stat-avg 4 {local_onsrc_path} --offsrc {local_offsrc_path} --save {PLOT_DIR / date}"
-    try:
-        subprocess.run(cmd.split(" "), capture_output=True, text=True, check=True)
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Failed to process {local_onsrc_path.name} and {local_offsrc_path.name}: {e.stderr}\n{cmd}")
-    finally:
+    if not local_onsrc_path.exists() or not local_offsrc_path.exists():
+        logging.error(
+            f"Skipping pair because local files are missing: {local_onsrc_path}, {local_offsrc_path}"
+        )
         return [local_onsrc_path, local_offsrc_path]
+
+    cmd = [
+        "python3",
+        "plot_ps_scint.py",
+        "--f1",
+        str(F1),
+        "--f2",
+        str(F2),
+        "--uni-stat-avg",
+        "4",
+        str(local_onsrc_path),
+        "--offsrc",
+        str(local_offsrc_path),
+        "--save",
+        str(PLOT_DIR / date),
+    ]
+    try:
+        subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=PLOT_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        logging.error(
+            f"Timeout while processing {local_onsrc_path.name} and {local_offsrc_path.name} after {PLOT_TIMEOUT_S}s"
+        )
+    except subprocess.CalledProcessError as e:
+        logging.error(
+            f"Failed to process {local_onsrc_path.name} and {local_offsrc_path.name}: {e.stderr}\n{' '.join(cmd)}"
+        )
+
+    return [local_onsrc_path, local_offsrc_path]
 
 def process_date_files(item: tuple):
     date, pairs = item
@@ -284,29 +328,44 @@ def main():
     logging.info("Getting the pairs to be processed.")
     files_to_process = get_files_process(pairs_dict)
 
-    if len(files_to_process.items()) == 0:
+    num_pairs_to_process = get_total_num_pairs(files_to_process)
+    if num_pairs_to_process == 0:
         logging.info("No pairs to process.")
         return
 
-    logging.info(f"Processing the pairs.\n{get_total_num_pairs(files_to_process)} out of {get_total_num_pairs(pairs_dict)}")
-    print(f"Processing the pairs.\n{get_total_num_pairs(files_to_process)} out of {get_total_num_pairs(pairs_dict)}")
+    logging.info(f"Processing the pairs.\n{num_pairs_to_process} out of {get_total_num_pairs(pairs_dict)}")
+    print(f"Processing the pairs.\n{num_pairs_to_process} out of {get_total_num_pairs(pairs_dict)}")
 
     file_paths = []
 
     try:
-        processes = 5#max(1, min(len(files_to_process), max(1, multiprocessing.cpu_count() - 5)))
-        with multiprocessing.Pool(processes=processes) as pool:
-            for paths in tqdm(
-                pool.imap(process_date_files, files_to_process.items()),
-                total=len(files_to_process),
-                desc="Processing dates",
-            ):
+        processes = max(1, min(POOL_PROCESSES, len(files_to_process)))
+        pool = multiprocessing.Pool(processes=processes, maxtasksperchild=1)
+        async_results = [pool.apply_async(process_date_files, (item,)) for item in files_to_process.items()]
+        timed_out = False
+
+        for result in tqdm(async_results, total=len(async_results), desc="Processing dates"):
+            try:
+                paths = result.get(timeout=DATE_TASK_TIMEOUT_S)
                 file_paths.extend(paths)
+            except multiprocessing.TimeoutError:
+                timed_out = True
+                logging.error(
+                    f"A date task exceeded timeout of {DATE_TASK_TIMEOUT_S}s. Remaining tasks will be terminated."
+                )
+            except Exception:
+                logging.exception("Unhandled worker error during multiprocessing execution.")
+
+        if timed_out:
+            pool.terminate()
+        else:
+            pool.close()
+        pool.join()
     except Exception:
         logging.exception("Unhandled error during multiprocessing execution.")
     finally:
         logging.info("Cleaning data.")
-        file_paths = sum(file_paths, [])
+        file_paths = list(it.chain.from_iterable(file_paths))
         for f in file_paths:
             cleanup_data(f)
 
