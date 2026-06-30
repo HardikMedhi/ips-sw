@@ -71,11 +71,7 @@ def get_m_ps(psd:np.ndarray, freqs:np.ndarray, fc:float,
     # Perform numerical integration using trapezoidal rule
     integrated_power = trapezoid(P_integration, f_integration)
 
-    onsrc_mu = np.mean(onsrc_ts)
-    offsrc_mu = np.mean(offsrc_ts)
-    mean_intensity = onsrc_mu - offsrc_mu if defln is None else defln
-
-    m = np.sqrt(integrated_power) / mean_intensity
+    m = np.sqrt(integrated_power) / defln
 
     return m
 
