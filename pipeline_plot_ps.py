@@ -28,7 +28,7 @@ with open(os.devnull, 'w') as _devnull:
 # Configuration Variables
 # ==========================================
 REMOTE_USER = "pulsar1"
-REMOTE_HOST = "pulsar1"
+REMOTE_HOST = "192.168.200.111"
 REMOTE_DIR = "/data/ips"
 LOCAL_DATA_DIR = Path("/data/IPS")
 PLOT_DIR = Path("~/PhD/plots/ps").expanduser()
@@ -37,9 +37,9 @@ LOG_FILE = Path("/home/hardikmedhi/PhD/logs/pipeline_plot_ps.log")
 
 F1 = 330 #Hz
 F2 = 322 #Hz
-RSYNC_TIMEOUT_S = 300
-PLOT_TIMEOUT_S = 900
-DATE_TASK_TIMEOUT_S = 1800
+RSYNC_TIMEOUT_S = 200
+PLOT_TIMEOUT_S = 200
+DATE_TASK_TIMEOUT_S = 250
 POOL_PROCESSES = 5
 
 # ==========================================
@@ -179,9 +179,9 @@ def cleanup_data(local_file: Path):
     """
     try:
         local_file.unlink(missing_ok=True)
-        logging.info(f"Cleaned up raw data: {local_file.name}")
+        logging.info(f"Cleaned up raw data: {local_file}")
     except OSError as e:
-        logging.error(f"Failed to delete {local_file.name}: {e}")
+        logging.error(f"Failed to delete {local_file}: {e}")
 
 # ==========================================
 # Pipeline Steps

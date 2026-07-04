@@ -38,7 +38,7 @@ with open(os.devnull, 'w') as _devnull:
 # Configuration Variables
 # ==========================================
 REMOTE_USER = "pulsar1"
-REMOTE_HOST = "pulsar1"
+REMOTE_HOST = "192.168.200.111"
 REMOTE_DIR = "/data/ips"
 LOCAL_DATA_DIR = Path("/data/IPS/")
 PLOT_DIR = Path("/home/hardikmedhi/PhD/plots/ds")
@@ -207,11 +207,13 @@ def make_plots(file_path: Path, save_folder_path: Path):
     args_ds = (
         fb_obj,
         None, None,
+        None, None,
         False, save_folder_path
     )
 
     args_bpnorm = (
         fb_obj,
+        None, None,
         None, None,
         True, save_folder_path
     )
