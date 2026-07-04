@@ -95,8 +95,10 @@ def get_ps(fb_obj: Filterbank,
            f1:float=None, f2:float=None, 
            t1:float=None, t2:float=None,
            bpnorm:bool=False,
-           nodetrend:bool=False, nodespike:bool=False):
-    matrix = fb_obj.matrix
+           nodetrend:bool=False, nodespike:bool=False,
+           matrix:np.ndarray=None):
+    
+    matrix = fb_obj.matrix if matrix is None else matrix
 
     if f1 is not None or f2 is not None:
         matrix, _ = dpr.get_sub_matrix_freq(matrix, f1, f2, fb_obj.freq_channels)

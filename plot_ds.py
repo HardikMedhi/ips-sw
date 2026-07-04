@@ -8,6 +8,51 @@ import time_utils as tut
 import data_process as dpr
 from filterbank import Filterbank
 
+def main():
+    file_path, f1, f2, t1, t2, bpnorm, save_folder_path = get_args()
+    fb_obj = Filterbank(file_path)
+    
+    visualize_ds(fb_obj, f1, f2, t1, t2, bpnorm, save_folder_path)
+
+def get_args():
+    """Parse CLI arguments for dynamic spectrum plotting."""
+    parser = argparse.ArgumentParser(
+        description='Plot dynamic spectrum from a filterbank (.fil) or FITS file.',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Example:
+  python plot_ds.py /path/to/data.fil
+  python plot_ds.py /path/to/data.fits
+  python plot_ds.py /path/to/data.fil --save output_plots/
+        """
+    )
+    
+    parser.add_argument('file_path', type=str,
+                       help='Path to the filterbank (.fil) or FITS (.fits) file')
+    parser.add_argument('--save', type=str, default=None,
+                       help='Folder to save the plot (if not provided, plot will be displayed)')
+    parser.add_argument('--f1', type=float, default=None,
+                       help='Higher frequency in MHz')
+    parser.add_argument('--f2', type=float, default=None,
+                       help='Lower frequency in MHz')
+    parser.add_argument('--t1', type=float, default=None,
+                       help='Lower time value in seconds')
+    parser.add_argument('--t2', type=float, default=None,
+                       help='Higher time value in seconds')
+    parser.add_argument('--bpnorm', action='store_true',
+                       help='Also produce a bandpass-normalized dynamic spectrum plot')
+    
+    args = parser.parse_args()
+
+    # Normalize parsed values into pathlib objects for downstream code.
+    file_path = Path(args.file_path)
+    save_folder_path = Path(args.save) if args.save is not None else None
+    f1, f2 = args.f1, args.f2
+    t1, t2 = args.t1, args.t2
+    bpnorm = args.bpnorm
+
+    return file_path, f1, f2, t1, t2, bpnorm, save_folder_path
+
 def visualize_ds(fb_obj: Filterbank, 
                  f1:float=None, f2:float=None,
                  t1:float=None, t2:float=None,
@@ -112,50 +157,8 @@ def visualize_ds(fb_obj: Filterbank,
     plt.show()
     return fig, ax_main
 
-def get_args():
-    """Parse CLI arguments for dynamic spectrum plotting."""
-    parser = argparse.ArgumentParser(
-        description='Plot dynamic spectrum from a filterbank (.fil) or FITS file.',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Example:
-  python plot_ds.py /path/to/data.fil
-  python plot_ds.py /path/to/data.fits
-  python plot_ds.py /path/to/data.fil --save output_plots/
-        """
-    )
-    
-    parser.add_argument('file_path', type=str,
-                       help='Path to the filterbank (.fil) or FITS (.fits) file')
-    parser.add_argument('--save', type=str, default=None,
-                       help='Folder to save the plot (if not provided, plot will be displayed)')
-    parser.add_argument('--f1', type=float, default=None,
-                       help='Higher frequency in MHz')
-    parser.add_argument('--f2', type=float, default=None,
-                       help='Lower frequency in MHz')
-    parser.add_argument('--t1', type=float, default=None,
-                       help='Lower time value in seconds')
-    parser.add_argument('--t2', type=float, default=None,
-                       help='Higher time value in seconds')
-    parser.add_argument('--bpnorm', action='store_true',
-                       help='Also produce a bandpass-normalized dynamic spectrum plot')
-    
-    args = parser.parse_args()
-
-    # Normalize parsed values into pathlib objects for downstream code.
-    file_path = Path(args.file_path)
-    save_folder_path = Path(args.save) if args.save is not None else None
-    f1, f2 = args.f1, args.f2
-    t1, t2 = args.t1, args.t2
-    bpnorm = args.bpnorm
-
-    return file_path, f1, f2, t1, t2, bpnorm, save_folder_path
-
 if __name__ == "__main__":
-    file_path, f1, f2, t1, t2, bpnorm, save_folder_path = get_args()
-    fb_obj = Filterbank(file_path)
-    
-    visualize_ds(fb_obj, f1, f2, t1, t2, bpnorm, save_folder_path)
+    main()
     
 
     
