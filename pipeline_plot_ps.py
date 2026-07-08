@@ -255,7 +255,7 @@ def process_pair(date:str, pair: list):
 
     cmd = [
         "python3",
-        "plot_ps_scint.py",
+        "/home/hardikmedhi/PhD/ips-sw/pipeline_plot_ps.py",
         "--f1",
         str(F1),
         "--f2",
