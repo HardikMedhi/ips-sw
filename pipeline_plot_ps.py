@@ -17,10 +17,6 @@ warnings.filterwarnings("ignore")
 with open(os.devnull, 'w') as _devnull:
     _stdout = sys.stdout
     sys.stdout = _devnull
-    import plot_ds as dsp
-    from filterbank import Filterbank
-    import data_process as dpr
-    import organize_dsplots_date as opd
     import time_utils as tut
     sys.stdout = _stdout
 
@@ -255,7 +251,7 @@ def process_pair(date:str, pair: list):
 
     cmd = [
         "python3",
-        "/home/hardikmedhi/PhD/ips-sw/pipeline_plot_ps.py",
+        "/home/hardikmedhi/PhD/ips-sw/pipeline_plot_ps.py", 
         "--f1",
         str(F1),
         "--f2",
