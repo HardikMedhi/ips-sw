@@ -31,11 +31,21 @@ def get_solar_elongation(mjd:str, src_coords:SkyCoord):
 
     return elong * side
 
-def get_p_point_dist(obs_date: Time, elongation: float):
+def get_p_point_dist(obs_date: Time, elongation):
+    # Ensure elongation is a numpy array for vector operations
+    elongation = np.asarray(elongation)
     elongation_rad = np.deg2rad(np.abs(elongation))
-    d_sun_au = get_earth(obs_date).radius.to(u.AU)
+    
+    # Extract the raw float array immediately to avoid Astropy Quantity clashes with np.where
+    d_sun_au = get_earth(obs_date).radius.to_value(u.AU)
 
-    p_point_sun_au = d_sun_au * np.sin(elongation_rad) if elongation <= 90 else np.nan
-    p_point_earth_au = d_sun_au * np.cos(elongation_rad) if elongation <= 90 else np.nan
+    # Use np.where instead of if/else to handle arrays
+    valid_mask = elongation <= 90
+    
+    p_point_sun_au = np.where(valid_mask, d_sun_au * np.sin(elongation_rad), np.nan)
+    p_point_earth_au = np.where(valid_mask, d_sun_au * np.cos(elongation_rad), np.nan)
 
-    return p_point_sun_au.value, p_point_earth_au.value
+    return p_point_sun_au, p_point_earth_au
+
+def get_R_turnover(freq:float):
+    return 10**3.3 * freq ** (-0.7) #Solar Radii
