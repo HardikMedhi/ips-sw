@@ -1,6 +1,8 @@
+import re
 import numpy as np
 from pathlib import Path
 from scipy import signal
+import pandas as pd
 
 import file_utils as fut
 
@@ -189,3 +191,20 @@ def calc_snr(onsrc_ts:np.ndarray, offsrc_ts:np.ndarray):
 
     snr = (on_mu - off_mu) / off_std
     return snr
+
+def get_coords_colnames(df:pd.DataFrame):
+    ra_pattern = re.compile(r'^ra(?:[_ -]?j2000)?$', re.IGNORECASE)
+    dec_pattern = re.compile(r'^dec(?:[_ -]?j2000)?$', re.IGNORECASE)
+    
+    # next() returns the first column that matches the pattern, or None if no match is found
+    ra_col = next((col for col in df.columns if ra_pattern.match(col)), None)
+    dec_col = next((col for col in df.columns if dec_pattern.match(col)), None)
+    
+    if ra_col is None or dec_col is None:
+        print("Error: Could not find RA/Dec columns in the catalog.")
+        print(f"Available columns: {df.columns}")
+        print(f"Expected RA pattern: {ra_pattern.pattern}")
+        print(f"Expected Dec pattern: {dec_pattern.pattern}")
+        return None, None
+    
+    return ra_col, dec_col

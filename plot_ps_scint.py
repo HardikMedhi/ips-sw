@@ -15,7 +15,7 @@ from filterbank import Filterbank
 def visualize_scint_ps(psd_arr: np.ndarray, freqs: np.ndarray, 
                        f1:float, f2:float, t1:float, t2:float, crossover_freq:float,
                        m_ps:float, m_ts:float,
-                       onsrc_name:str, offsrc_name:str, mjd:str,
+                       onsrc_name:str, offsrc_name:str, mjd:str, elong:float,
                        nodb:bool=False, save_folder_path:Path=None):
     
     scint_psd, onsrc_psd, offsrc_psd = psd_arr
@@ -46,7 +46,7 @@ def visualize_scint_ps(psd_arr: np.ndarray, freqs: np.ndarray,
                    label=f'Crossover freq: {crossover_freq:.2f} Hz', alpha=0.6)
 
     mjd_dt = tut.mjd_to_datetime(mjd).strftime('%Y-%m-%d %H:%M:%S')
-    title = f"{onsrc_name} - {offsrc_name}\n{mjd_dt}\n{f2:.2f} - {f1:.2f} MHz | {t1:.2f} - {t2:.2f} s"
+    title = f"{onsrc_name} - {offsrc_name}\n{mjd_dt} (ϵ = {elong:.2f}°)\n{f2:.2f} - {f1:.2f} MHz | {t1:.2f} - {t2:.2f} s"
     ax.set_title(title, fontsize=12, fontweight='bold')
     ax.grid(True, alpha=0.3)
     ax.legend(loc='best')

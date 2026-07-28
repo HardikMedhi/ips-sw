@@ -12,6 +12,7 @@ from filterbank import Filterbank
 def visualize_ps(psd: np.ndarray, freqs: np.ndarray,
                 source_name:str, mjd:str,
                 f1:float, f2:float,
+                elong:float,
                 nodb:bool=False, save_folder_path:Path=None
                 ):
 
@@ -28,7 +29,7 @@ def visualize_ps(psd: np.ndarray, freqs: np.ndarray,
     ax.set_ylabel("Power (dB)", fontsize=11)
 
     mjd_dt = tut.mjd_to_datetime(mjd).strftime('%Y-%m-%d %H:%M:%S')
-    title = f"{source_name}\n{mjd_dt}"
+    title = f"{source_name} (ϵ = {elong:.2f}°)\n{mjd_dt}"
     ax.set_title(title, fontsize=12, fontweight='bold')
     ax.grid(True, alpha=0.3)
     ax.legend(loc='best')
@@ -54,7 +55,7 @@ def visualize_ps(psd: np.ndarray, freqs: np.ndarray,
     
     print("Displaying plot.")
     plt.show()
-    return fig, ax_main
+    return fig, ax
     
 
 def get_args():
@@ -111,7 +112,7 @@ def get_ps(fb_obj: Filterbank,
     matrix = fb_obj.matrix
 
     if f1 is not None or f2 is not None:
-        matrix, _ = dpr.get_sub_matrix(matrix, f1, f2, fb_obj.freq_channels)
+        matrix, _ = dpr.get_sub_matrix_freq(matrix, f1, f2, fb_obj.freq_channels)
 
     if bpnorm:
         matrix = dpr.bp_norm_matrix(matrix)
@@ -139,11 +140,12 @@ if __name__ == "__main__":
     if uni_stat_avg is not None:
         freqs, psd, _ = power_spec.uniform_statistical_averaging(freqs, psd, uni_stat_avg)
 
-    _, freq_chans = dpr.get_sub_matrix(fb_obj.matrix, f1, f2, fb_obj.freq_channels)
+    _, freq_chans = dpr.get_sub_matrix_freq(fb_obj.matrix, f1, f2, fb_obj.freq_channels)
     
     visualize_ps(
         psd, freqs, 
         fb_obj.source_name, fb_obj.mjd,
         freq_chans[0], freq_chans[-1],
+        fb_obj.elong,
         nodb, save_folder_path
     )

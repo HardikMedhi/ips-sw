@@ -1,0 +1,20 @@
+ort:
+    lon: 76.66 # degree
+    lat: 11.38 # degree
+    height: 2240 # m
+    dec_low: -60 # degree
+    dec_high: 60 # degree
+    lam: 0.91 # m
+
+gmrt:
+    lon: 74.0497 # degree
+    lat: 19.0965 # degree
+    height: 650 # m
+    dec_low: -53 # degree
+    dec_high: 90 # degree
+    lam:
+        band1: 4.61 # m
+        band2: 1.62 # m
+        band3: 0.8 # m
+        band4: 0.43 # m
+        band5: 0.24  
