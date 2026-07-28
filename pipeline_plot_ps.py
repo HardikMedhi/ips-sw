@@ -36,7 +36,7 @@ F2 = 322 #Hz
 RSYNC_TIMEOUT_S = 200
 PLOT_TIMEOUT_S = 200
 DATE_TASK_TIMEOUT_S = 250
-POOL_PROCESSES = 5
+POOL_PROCESSES = 3
 
 # ==========================================
 # Logging Setup
@@ -212,12 +212,13 @@ def get_files_process(pairs_dict: dict) -> dict:
             plot_filename = f"{onsrc_name}_{offsrc_name}_{mjd}_{F1:.2f}_{F2:.2f}_scint_power_spec.jpeg"
             plot_filepath = date_folder_path / plot_filename
 
-            if plot_filepath.exists():
-                logging.info(f"{plot_filepath} exists. Skipping.")
-                pair.append(False)
-            else:
-               # logging.info(f"{plot_filepath} doesn't exist. Proceeding.")
-                pair.append(True)
+            pair.append(plot_filepath.exists())
+            # if plot_filepath.exists():
+            #     logging.info(f"{plot_filepath} exists. Skipping.")
+            #     pair.append(False)
+            # else:
+            #    # logging.info(f"{plot_filepath} doesn't exist. Proceeding.")
+            #     pair.append(True)
 
     files_to_process = {}
     for k,v in pairs_dict_flags.items():
@@ -335,28 +336,29 @@ def main():
     file_paths = []
 
     try:
-        processes = max(1, min(POOL_PROCESSES, len(files_to_process)))
-        pool = multiprocessing.Pool(processes=processes, maxtasksperchild=1)
-        async_results = [pool.apply_async(process_date_files, (item,)) for item in files_to_process.items()]
-        timed_out = False
+        # 1. Hardcoded to 3 processes
+        # 2. Removed maxtasksperchild=1 to prevent excessive process creation/destruction
+        with multiprocessing.Pool(processes=5) as pool:
+            async_results = [
+                pool.apply_async(process_date_files, (item,)) 
+                for item in files_to_process.items()
+            ]
 
-        for result in tqdm(async_results, total=len(async_results), desc="Processing dates"):
-            try:
-                paths = result.get(timeout=DATE_TASK_TIMEOUT_S)
-                file_paths.extend(paths)
-            except multiprocessing.TimeoutError:
-                timed_out = True
-                logging.error(
-                    f"A date task exceeded timeout of {DATE_TASK_TIMEOUT_S}s. Remaining tasks will be terminated."
-                )
-            except Exception:
-                logging.exception("Unhandled worker error during multiprocessing execution.")
-
-        if timed_out:
-            pool.terminate()
-        else:
+            for result in tqdm(async_results, total=len(async_results), desc="Processing dates"):
+                try:
+                    paths = result.get(timeout=DATE_TASK_TIMEOUT_S)
+                    file_paths.extend(paths)
+                except multiprocessing.TimeoutError:
+                    logging.error(f"Task exceeded {DATE_TASK_TIMEOUT_S}s timeout. Terminating remaining.")
+                    pool.terminate()  # Instantly kills remaining workers
+                    break             # Bypasses the need for a 'timed_out' flag
+                except Exception:
+                    logging.exception("Unhandled worker error during multiprocessing execution.")
+            
+            # Cleanly shut down the pool if we didn't terminate early
             pool.close()
-        pool.join()
+            pool.join()
+
     except Exception:
         logging.exception("Unhandled error during multiprocessing execution.")
     finally:
