@@ -52,10 +52,10 @@ def visualize_scint_ps(psd_arr: np.ndarray, freqs: np.ndarray,
     ax.legend(loc='best')
 
     # Display m_ps and m_ts in a separate boxed text (not part of legend)
-    stats_text = f"m (PS): {m_ps:.4e}\n m (TS): {m_ts:.4e}"
-    ax.text(0.18, 0.02, stats_text, transform=ax.transAxes,
-        fontsize=12, verticalalignment='bottom', horizontalalignment='right',
-        bbox=dict(boxstyle='round,pad=0.4', facecolor='white', alpha=0.8, edgecolor='black'))
+    # stats_text = f"m (PS): {m_ps:.4e}\n m (TS): {m_ts:.4e}"
+    # ax.text(0.18, 0.02, stats_text, transform=ax.transAxes,
+    #     fontsize=12, verticalalignment='bottom', horizontalalignment='right',
+    #     bbox=dict(boxstyle='round,pad=0.4', facecolor='white', alpha=0.8, edgecolor='black'))
 
 
     if save_folder_path is not None:
@@ -68,7 +68,7 @@ def visualize_scint_ps(psd_arr: np.ndarray, freqs: np.ndarray,
         file_path = folder_path / filename
         
         # Delegate overwrite handling to the shared helper.
-        file_path = fut.handle_file_existence(file_path)
+        #file_path = fut.handle_file_existence(file_path)
         
         fig.savefig(file_path, bbox_inches='tight', dpi=150)
         plt.close(fig)
@@ -162,17 +162,19 @@ if __name__ == "__main__":
         onsrc_ts = np.nanmean(onsrc_fb.matrix, axis=1)
         offsrc_ts = np.nanmean(offsrc_fb.matrix, axis=1)
 
-        m_ps, m_ts = sc.get_m_vals(
-            onsrc_fb, offsrc_fb,
-            scint_psd, freqs,
-            crossover_freq
-        )
+        m_ps, m_ts = 0, 0
+
+        # m_ps, m_ts = sc.get_m_vals(
+        #     onsrc_fb, offsrc_fb,
+        #     scint_psd, freqs,
+        #     crossover_freq
+        # )
 
         visualize_scint_ps(
             np.array([scint_psd, onsrc_psd, offsrc_psd]), freqs, 
             f1, f2, t1, t2, crossover_freq,
             m_ps, m_ts,
-            onsrc_fb.source_name, offsrc_fb.source_name, onsrc_fb.mjd,
+            onsrc_fb.source_name, offsrc_fb.source_name, onsrc_fb.mjd, onsrc_fb.elong,
             nodb, save_folder_path
         )
 

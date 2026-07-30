@@ -1,11 +1,9 @@
 
 import subprocess
 import logging
-import gc
 import multiprocessing
 import sys
 import os
-import pickle
 from contextlib import contextmanager
 from pathlib import Path
 from tqdm import tqdm
@@ -33,6 +31,10 @@ LOG_FILE = Path("/home/hardikmedhi/PhD/logs/pipeline_plot_ps.log")
 
 F1 = 330 #Hz
 F2 = 322 #Hz
+
+USE_MULTIPROCESSING = True
+NUM_PROCESS = 5
+
 RSYNC_TIMEOUT_S = 200
 PLOT_TIMEOUT_S = 200
 DATE_TASK_TIMEOUT_S = 250
@@ -41,12 +43,20 @@ POOL_PROCESSES = 3
 # ==========================================
 # Logging Setup
 # ==========================================
+from logging.handlers import RotatingFileHandler
+
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
-    handlers=[logging.FileHandler(LOG_FILE)]
+    handlers=[
+        RotatingFileHandler(
+            LOG_FILE, 
+            maxBytes=10 * 1024 * 1024,  # Limits each log file to 10 MB
+            backupCount=5               # Keeps only the 5 most recent backup files
+        )
+    ]
 )
 
 # ==========================================
@@ -193,12 +203,7 @@ def get_files_process(pairs_dict: dict) -> dict:
 
     for k, v in pairs_dict.items():
         date_folder_path = PLOT_DIR / k
-        if not date_folder_path.exists() or not any(date_folder_path.iterdir()):
-            date_folder_path.mkdir(exist_ok=True)
-            for pair in v:
-                pair.append(True)
-            pairs_dict_flags[k] = v
-            continue
+        date_folder_path.mkdir(exist_ok=True)
 
         for pair in v:
             onsrc_path = Path(pair[0])
@@ -213,19 +218,13 @@ def get_files_process(pairs_dict: dict) -> dict:
             plot_filepath = date_folder_path / plot_filename
 
             pair.append(plot_filepath.exists())
-            # if plot_filepath.exists():
-            #     logging.info(f"{plot_filepath} exists. Skipping.")
-            #     pair.append(False)
-            # else:
-            #    # logging.info(f"{plot_filepath} doesn't exist. Proceeding.")
-            #     pair.append(True)
 
     files_to_process = {}
     for k,v in pairs_dict_flags.items():
         files_to_process[k] = [
             [pair[0], pair[1]]
             for pair in v
-            if pair[-1]
+            if not pair[-1]
         ]
 
     return files_to_process   
@@ -252,7 +251,7 @@ def process_pair(date:str, pair: list):
 
     cmd = [
         "python3",
-        "/home/hardikmedhi/PhD/ips-sw/pipeline_plot_ps.py", 
+        "/home/hardikmedhi/PhD/ips-sw/plot_ps_scint.py", 
         "--f1",
         str(F1),
         "--f2",
@@ -265,8 +264,10 @@ def process_pair(date:str, pair: list):
         "--save",
         str(PLOT_DIR / date),
     ]
+
     try:
         subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=PLOT_TIMEOUT_S)
+        logging.info(cmd)
     except subprocess.TimeoutExpired:
         logging.error(
             f"Timeout while processing {local_onsrc_path.name} and {local_offsrc_path.name} after {PLOT_TIMEOUT_S}s"
@@ -275,6 +276,8 @@ def process_pair(date:str, pair: list):
         logging.error(
             f"Failed to process {local_onsrc_path.name} and {local_offsrc_path.name}: {e.stderr}\n{' '.join(cmd)}"
         )
+    else:
+        logging.info("Plot successfully saved!")
 
     return [local_onsrc_path, local_offsrc_path]
 
@@ -304,7 +307,7 @@ def get_total_num_pairs(pairs_dict: dict):
 # Main Execution Flow
 # ==========================================
 
-def main():
+def main_mp():
     """Entry point for the daily IPS dynamic spectrum pipeline.
 
     Orchestrates the full run: directory setup, remote file discovery,
@@ -336,9 +339,7 @@ def main():
     file_paths = []
 
     try:
-        # 1. Hardcoded to 3 processes
-        # 2. Removed maxtasksperchild=1 to prevent excessive process creation/destruction
-        with multiprocessing.Pool(processes=5) as pool:
+        with multiprocessing.Pool(processes=NUM_PROCESS) as pool:
             async_results = [
                 pool.apply_async(process_date_files, (item,)) 
                 for item in files_to_process.items()
@@ -369,5 +370,61 @@ def main():
 
     logging.info("Pipeline execution complete.")
 
-if __name__ == "__main__":
-    main()
+def main_sequential():
+    """Entry point for the daily IPS dynamic spectrum pipeline (Sequential).
+
+    Executes the exact same orchestration as main(), but processes all 
+    files sequentially in a single process. Ideal for debugging or 
+    running on highly resource-constrained environments.
+    """
+    logging.info("\nStarting daily pipeline scan (Sequential Mode)...")
+
+    setup_directories()
+
+    remote_files = get_recent_remote_files()
+    if not remote_files:
+        logging.info("No new files found on the remote server.")
+        return
+    
+    logging.info("Getting on-off pairs")
+    pairs_dict = get_onoff_pairs(remote_files)
+
+    logging.info("Getting the pairs to be processed.")
+    files_to_process = get_files_process(pairs_dict)
+    
+    num_pairs_to_process = get_total_num_pairs(files_to_process)
+     
+    if num_pairs_to_process == 0:
+        logging.info("No pairs to process.")
+        return
+
+    logging.info(f"Processing the pairs.\n{num_pairs_to_process} out of {get_total_num_pairs(pairs_dict)}")
+    print(f"Processing the pairs.\n{num_pairs_to_process} out of {get_total_num_pairs(pairs_dict)}")
+
+    file_paths = []
+
+    try:
+        # Loop directly over the items without a multiprocessing pool
+        for item in tqdm(files_to_process.items(), total=len(files_to_process), desc="Processing dates"):
+            try:
+                paths = process_date_files(item)
+                file_paths.extend(paths)
+            except Exception:
+                logging.exception(f"Unhandled error during sequential execution for date: {item[0]}")
+                
+    except Exception:
+        logging.exception("Unhandled error during overall sequential execution.")
+    finally:
+        logging.info("Cleaning data.")
+        file_paths = list(it.chain.from_iterable(file_paths))
+        for f in file_paths:
+            cleanup_data(f)
+
+    logging.info("Sequential pipeline execution complete.\n")
+
+if __name__ == "__main__":   
+    if USE_MULTIPROCESSING:
+        print(f"Using {NUM_PROCESS} processes.")
+        main_mp()
+    else:
+        main_sequential()
