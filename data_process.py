@@ -192,19 +192,19 @@ def calc_snr(onsrc_ts:np.ndarray, offsrc_ts:np.ndarray):
     snr = (on_mu - off_mu) / off_std
     return snr
 
-def get_coords_colnames(df:pd.DataFrame):
+def get_coords_colnames(col_names:list) -> tuple[str, str]:
     ra_pattern = re.compile(r'^ra(?:[_ -]?j2000)?$', re.IGNORECASE)
     dec_pattern = re.compile(r'^dec(?:[_ -]?j2000)?$', re.IGNORECASE)
     
-    # next() returns the first column that matches the pattern, or None if no match is found
-    ra_col = next((col for col in df.columns if ra_pattern.match(col)), None)
-    dec_col = next((col for col in df.columns if dec_pattern.match(col)), None)
+    ra_col = next((col for col in col_names if ra_pattern.match(col)), None)
+    dec_col = next((col for col in col_names if dec_pattern.match(col)), None)
     
     if ra_col is None or dec_col is None:
-        print("Error: Could not find RA/Dec columns in the catalog.")
-        print(f"Available columns: {df.columns}")
-        print(f"Expected RA pattern: {ra_pattern.pattern}")
-        print(f"Expected Dec pattern: {dec_pattern.pattern}")
-        return None, None
+        raise ValueError(
+            f"Could not find required RA/Dec columns in the catalog.\n"
+            f"Available columns: {list(col_names)}\n"
+            f"Expected RA pattern: {ra_pattern.pattern}\n"
+            f"Expected Dec pattern: {dec_pattern.pattern}"
+        )
     
     return ra_col, dec_col

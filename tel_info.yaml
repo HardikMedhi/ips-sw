@@ -2,9 +2,13 @@ ort:
     lon: 76.66 # degree
     lat: 11.38 # degree
     height: 2240 # m
-    dec_low: -60 # degree
-    dec_high: 60 # degree
+    dec_low: -45 # degree
+    dec_high: 45 # degree
     lam: 0.91 # m
+    ha_lim: 5.5 # +/- hrs
+    len_ns_total: 530 # m
+    len_ns_mod: 23 # m
+    len_ew_total: 30 # m
 
 gmrt:
     lon: 74.0497 # degree
@@ -17,4 +21,5 @@ gmrt:
         band2: 1.62 # m
         band3: 0.8 # m
         band4: 0.43 # m
-        band5: 0.24  
+        band5: 0.24 
+    ha_lim: 4.5 # +/- hrs

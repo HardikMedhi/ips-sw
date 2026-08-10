@@ -14,8 +14,10 @@ warnings.filterwarnings("ignore")
 
 import geometry_utils as gut
 
+plt.style.use("./style_paper.mplstyle")
+
 def main():
-    set_pyplot_rcparams()
+    #set_pyplot_rcparams()
 
     filepath_sources_csv, ref_date, sideview, topview, save_filepath, frequency, p_pt, skip_days = get_args()
 
@@ -39,13 +41,13 @@ def main():
             manage_plot_side_view(sources_df, ref_date, save_filepath, p_pt)
             manage_plot_top_view(sources_df, ref_date, save_filepath, p_pt)
 
-def set_pyplot_rcparams():
-    plt.rcParams['axes.titlesize'] = 16
-    plt.rcParams['axes.labelsize'] = 14
-    plt.rcParams['axes.titleweight'] = 'bold'
-    plt.rcParams['xtick.labelsize'] = 12
-    plt.rcParams['ytick.labelsize'] = 12
-    plt.rcParams['legend.fontsize'] = 12
+# def set_pyplot_rcparams():
+#     plt.rcParams['axes.titlesize'] = 16
+#     plt.rcParams['axes.labelsize'] = 14
+#     plt.rcParams['axes.titleweight'] = 'bold'
+#     plt.rcParams['xtick.labelsize'] = 12
+#     plt.rcParams['ytick.labelsize'] = 12
+#     plt.rcParams['legend.fontsize'] = 12
             
 def get_args():
     parser = argparse.ArgumentParser(
