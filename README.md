@@ -2,7 +2,7 @@
 
 This repository contains the core analysis code for my PhD work on interplanetary scintillation (IPS) and solar wind studies. It provides utilities for reading and processing filterbank data, computing spectra, handling time/coordinate geometry, applying RFI mitigation, and generating scientific plots.
 
-This package is intended to support downstream analysis workflows and related projects such as SHIPS and ITACHI, which build on the shared functionality provided here.
+This package is intended to support downstream analysis workflows and related projects such as ([SHIPS](https://github.com/HardikMedhi/ships)) and ITACHI (under development), which build on the shared functionality provided here.
 
 ## Overview
 
