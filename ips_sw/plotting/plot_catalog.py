@@ -8,7 +8,7 @@ from astropy.table import Table
 import warnings
 warnings.filterwarnings("ignore")
 
-import ips_sw.utils.data_process as dpr
+import ips_sw.utils.data_utils as dut
 
 from importlib.resources import files
 style_path = files("ips_sw").joinpath("matplotlib_styles/style_paper.mplstyle")
@@ -54,7 +54,7 @@ def get_cat_coords(filepath_cat:Path) -> SkyCoord:
     except Exception as e:
         raise ValueError(f"Unable to read catalog {filepath_cat}: {e}")
 
-    colname_ra, colname_dec = dpr.get_coords_colnames(data.columns)
+    colname_ra, colname_dec = dut.get_coords_colnames(data.columns)
     coords = SkyCoord(ra=data[colname_ra], dec=data[colname_dec], unit=(U.hour, U.degree), frame='icrs')
     return coords
 

@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import signal
 
-import ips_sw.utils.data_process as dpr
+import ips_sw.utils.data_utils as dut
 from ips_sw.classes.filterbank import Filterbank
 
 def compute_power_spectrum(time_series: np.ndarray, sampling_rate: float, chunk_duration:float =30) -> tuple[np.ndarray, np.ndarray]:
@@ -101,23 +101,23 @@ def get_ps(fb_obj: Filterbank,
     matrix = fb_obj.matrix if matrix is None else matrix
 
     if f1 is not None or f2 is not None:
-        matrix, _ = dpr.get_sub_matrix_freq(matrix, f1, f2, fb_obj.freq_channels)
+        matrix, _ = dut.get_sub_matrix_freq(matrix, f1, f2, fb_obj.freq_channels)
     if t1 is not None or t2 is not None:
-        matrix, _ = dpr.get_sub_matrix_time(matrix, t1, t2, fb_obj.time_samples)
+        matrix, _ = dut.get_sub_matrix_time(matrix, t1, t2, fb_obj.time_samples)
 
     if bpnorm:
-        matrix = dpr.bp_norm_matrix(matrix)
+        matrix = dut.bp_norm_matrix(matrix)
 
     sampling_rate = 1 / fb_obj.header.tsamp
     time_profile = np.nanmean(matrix, axis=1)
 
     if not nodetrend:
         window_size = 10 #s
-        time_profile = dpr.remove_running_median(time_profile, sampling_rate, window_size)
+        time_profile = dut.remove_running_median(time_profile, sampling_rate, window_size)
 
     if not nodespike:
         kernel, threshold = 3, 6
-        time_profile = dpr.despike(time_profile, kernel, threshold)
+        time_profile = dut.despike(time_profile, kernel, threshold)
 
     freqs, psd = compute_power_spectrum(time_profile, sampling_rate)
 

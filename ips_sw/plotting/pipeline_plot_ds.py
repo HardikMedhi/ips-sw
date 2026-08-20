@@ -30,7 +30,7 @@ with open(os.devnull, 'w') as _devnull:
     sys.stdout = _devnull
     import ips_sw.plotting.plot_ds as dsp
     from ips_sw.classes.filterbank import Filterbank
-    import ips_sw.utils.data_process as dpr
+    import ips_sw.utils.data_utils as dut
     import organize_dsplots_date as opd
     sys.stdout = _stdout
 

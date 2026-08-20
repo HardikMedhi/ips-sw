@@ -6,7 +6,7 @@ from pathlib import Path
 from astropy.coordinates import SkyCoord
 
 import ips_sw.utils.file_utils as fut
-import ips_sw.utils.data_process as dpr
+import ips_sw.utils.data_utils as dut
 import ips_sw.utils.time_utils as tut
 import ips_sw.utils.geometry_utils as gut
 
@@ -25,8 +25,8 @@ class Filterbank:
         # Derive reusable metadata and precomputed arrays once during init.
         self._source_name = fut.get_source_name(self._file_path)
         self._mjd = self._get_mjd()
-        self._matrix = dpr.get_data_matrix(self._file_path)
-        self._time_samples, self._freq_channels = dpr.get_time_freqs(self._matrix, self._header.tsamp,
+        self._matrix = dut.get_data_matrix(self._file_path)
+        self._time_samples, self._freq_channels = dut.get_time_freqs(self._matrix, self._header.tsamp,
                                                                      self._header.nchans, self._header.foff,
                                                                      self._header.fch1)
                                                                      

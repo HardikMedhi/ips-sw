@@ -1,5 +1,0 @@
-test*
-*.bck
-__pycache__
-*.egg-info/
-sync_plots.sh

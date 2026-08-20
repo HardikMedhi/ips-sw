@@ -13,14 +13,20 @@ def get_source_name(file_path: Path):
 
 def get_file_type(file_path: Path):
     """Return the supported file type based on the file extension."""
+    file_extension_dict = {
+        ".fits" : "fits",
+        ".fit" : "fits",
+        ".fil" : "filterbank",
+        ".txt" : "text",
+        ".csv" : "csv"
+    }
+
     file_path = Path(file_path)
     file_ext = file_path.suffix.lower()
-    if file_ext in ['.fits', '.fit']:
-        return 'fits'
-    elif file_ext == '.fil':
-        return 'filterbank'
-    else:
-        raise ValueError(f"Unsupported file format: {file_ext}. Expected .fits, .fit, or .fil")
+    if file_ext in list(file_extension_dict.keys()):
+        return file_extension_dict[file_ext]
+    
+    raise ValueError(f"File format unrecognized: {file_ext}")
 
 def read_filbank(fb_path: str):
     """Read a filterbank file and return its header and full data array."""

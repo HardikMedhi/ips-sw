@@ -5,7 +5,7 @@ from pathlib import Path
 
 import ips_sw.utils.file_utils as fut
 import ips_sw.utils.time_utils as tut
-import ips_sw.utils.data_process as dpr
+import ips_sw.utils.data_utils as dut
 import ips_sw.power_spectra.power_spec as power_spec
 from ips_sw.classes.filterbank import Filterbank
 
@@ -21,7 +21,7 @@ def main(args:tuple) -> tuple:
     if uni_stat_avg is not None:
         freqs, psd, _ = power_spec.uniform_statistical_averaging(freqs, psd, uni_stat_avg)
     
-    _, freq_chans = dpr.get_sub_matrix_freq(fb_obj.matrix, f1, f2, fb_obj.freq_channels)
+    _, freq_chans = dut.get_sub_matrix_freq(fb_obj.matrix, f1, f2, fb_obj.freq_channels)
     
     fig, ax = visualize_ps(
         psd, freqs, 

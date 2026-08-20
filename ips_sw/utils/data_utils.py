@@ -3,6 +3,9 @@ import numpy as np
 from pathlib import Path
 from scipy import signal
 
+from astropy import units as u
+from astropy import table
+
 import ips_sw.utils.file_utils as fut
 
 def get_time_freqs(data: np.ndarray, tsampl: float, nchan: int, chan_bw: float, freq_start: float) -> tuple[np.array, np.array]:
@@ -177,3 +180,74 @@ def get_coords_colnames(col_names:list) -> tuple[str, str]:
         )
     
     return ra_col, dec_col
+
+def get_srcname_colname(col_names:list) -> str | None:
+    lower_cols = {c.lower(): c for c in col_names}
+    candidates = ["name", "source", "source_name", "id", "src"]
+    for cand in candidates:
+        if cand in lower_cols:
+            return lower_cols[cand]
+    return None
+
+def detect_ra_unit(catalog: table.Table, ra_col: str, sample_n: int = 10) -> tuple[u.Unit, str]:
+    """Heuristically detect whether RA values are in hours (HMS/H.dec hours) or degrees.
+
+    Returns (astropy_unit, human_readable_message).
+    """
+    col = catalog[ra_col]
+    samples = []
+    for val in col:
+        if val is None:
+            continue
+        # skip masked values from astropy table
+        try:
+            if hasattr(val, 'mask') and val.mask:
+                continue
+        except Exception:
+            pass
+
+        # skip NaNs
+        try:
+            if isinstance(val, float) and np.isnan(val):
+                continue
+        except Exception:
+            pass
+
+        samples.append(val)
+        if len(samples) >= sample_n:
+            break
+
+    if len(samples) == 0:
+        return u.hourangle, "hourangle (default; no samples)"
+
+    # If any sample is a string containing HMS separators or h/m/s letters, choose hourangle
+    for s in samples:
+        if isinstance(s, (bytes, bytearray)):
+            try:
+                s = s.decode()
+            except Exception:
+                continue
+        if isinstance(s, str):
+            sstr = s.strip().lower()
+            if (':' in sstr) or any(ch in sstr for ch in ['h', 'm', 's']):
+                return u.hourangle, "hourangle (HMS string detected)"
+            # numeric string
+            try:
+                f = float(sstr)
+                if abs(f) > 24:
+                    return u.deg, "deg (numeric string > 24 detected)"
+                else:
+                    return u.hourangle, "hourangle (numeric string <= 24)"
+            except Exception:
+                return u.hourangle, "hourangle (string fallback)"
+
+    # All samples numeric
+    try:
+        nums = [float(x) for x in samples]
+        maxv = max(np.abs(nums))
+        if maxv > 24:
+            return u.deg, "deg (numeric values > 24)"
+        else:
+            return u.hourangle, "hourangle (numeric values <= 24)"
+    except Exception:
+        return u.hourangle, "hourangle (fallback)"

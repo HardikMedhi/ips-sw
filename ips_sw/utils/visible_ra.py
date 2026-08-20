@@ -2,14 +2,19 @@ import argparse
 import numpy as np
 import yaml
 from pathlib import Path
-from datetime import datetime, timedelta, timezone
 from astropy.time import Time
 from astropy import units as u
 from astropy.coordinates import EarthLocation
 from astroplan import Observer
+from importlib.resources import files
+
+from ips_sw.utils import time_utils as tut
 
 def main(args:tuple):
-    dt_start, dt_end, tel = args
+    dt_start_str, dt_end_str, tel = args
+
+    dt_start = tut.get_dt_obj(dt_start_str)
+    dt_end = tut.get_dt_obj(dt_end_str)
 
     tel_info = get_tel_info(tel)
     observer = get_observer(tel_info)
@@ -43,30 +48,11 @@ def get_args():
     dt_end_str = args.dt_end
     tel = args.tel.lower()
 
-    dt_start = parse_datetime(dt_start_str)
-    dt_end = parse_datetime(dt_end_str)
-
-    return dt_start, dt_end, tel
-
-
-def parse_datetime(dt_str: str):
-    date = f"{dt_str[:4]}-{dt_str[4:6]}-{dt_str[6:8]}"
-    time = f"{dt_str[9:11]}:{dt_str[11:]}"
-    
-    # Create a datetime object and set it to IST (UTC+5:30)
-    ist_tz = timezone(timedelta(hours=5, minutes=30))
-    dt_obj = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M")
-    dt_obj = dt_obj.replace(tzinfo=ist_tz)
-    
-    # Astropy Time will now correctly interpret it and convert internally
-    dt = Time(dt_obj)
-
-    return dt
-
+    return dt_start_str, dt_end_str, tel
 
 def get_tel_info(tel:str):
-    tel_info_filepath = Path("/data/PhD/thesis/code2/tel_info.yaml")
-    with open(tel_info_filepath, "r") as f:
+    filepath_tel_info = files("ips_sw").joinpath("yaml_info/tel_info.yaml")
+    with open(filepath_tel_info, "r") as f:
         tel_info = yaml.safe_load(f)
     return tel_info[tel]
 

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import ips_sw.utils.file_utils as fut
 import ips_sw.utils.time_utils as tut
-import ips_sw.utils.data_process as dpr
+import ips_sw.utils.data_utils as dut
 from ips_sw.classes.filterbank import Filterbank
 
 from importlib.resources import files
@@ -73,17 +73,17 @@ def visualize_ds(fb_obj: Filterbank,
     time_samples = fb_obj.time_samples
 
     if f1 is not None or f2 is not None:
-        matrix, sub_freq_chan = dpr.get_sub_matrix_freq(matrix, f1, f2, fb_obj.freq_channels)
+        matrix, sub_freq_chan = dut.get_sub_matrix_freq(matrix, f1, f2, fb_obj.freq_channels)
         freq_chans = sub_freq_chan
 
     if t1 is not None or t2 is not None:
-        matrix, sub_time_samples = dpr.get_sub_matrix_time(matrix, t1, t2, fb_obj.time_samples)
+        matrix, sub_time_samples = dut.get_sub_matrix_time(matrix, t1, t2, fb_obj.time_samples)
         time_samples = sub_time_samples
 
     filename_suffix = ''
     if bpnorm:
         # Apply bandpass normalization before plotting when requested.
-        matrix = dpr.bp_norm_matrix(matrix)
+        matrix = dut.bp_norm_matrix(matrix)
         filename_suffix = '_bpnorm'
 
     time_profile = np.nanmean(matrix, axis=1)

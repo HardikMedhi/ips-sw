@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-import ips_sw.utils.data_process as dp
+import ips_sw.utils.data_utils as dut
 
 def main(args:list):
     map_filepath, srclist_path, usera, telescope, fc_lowlim, fc_highlim, date_precess = args
